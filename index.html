@@ -684,7 +684,7 @@ function buildUrl(){
   const ed=document.getElementById('ed').value.replace(/-/g,'');
   const genre=document.getElementById('sel-genre').value;
   const state=document.getElementById('sel-state').value;
-  const p=new URLSearchParams({stdate:st,eddate:ed,cpage:'1',rows:'200'});
+  const p=new URLSearchParams({stdate:st,eddate:ed,cpage:'1',rows:'100'});
   if(selCode) p.set('signgucode',selCode);
   if(genre)   p.set('shcate',genre);
   if(state)   p.set('prfstate',state);
