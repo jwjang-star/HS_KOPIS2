@@ -19,7 +19,7 @@ API_KEY = "1c235bf039644a5da499d3dfab103750"
 KOPIS_URL = "http://www.kopis.or.kr/openApi/restful/pblprfr"
 
 @app.get("/api/kopis")
-def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 20, signgucode: str = "", shcate: str = "", prfstate: str = ""):
+def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 200, signgucode: str = "", shcate: str = "", prfstate: str = ""):
     # 1. KOPIS에 보낼 파라미터 조립
     params = {
         "service": API_KEY,
