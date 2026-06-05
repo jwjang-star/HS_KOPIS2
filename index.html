@@ -808,8 +808,9 @@ async function doSearch(){
             ${isOpen?'<span class="tag tag-open">오픈런</span>':''}
           </div>
         </div>`;
+      // [수정됨] 존재하지 않는 sendPrompt 대신 임시 안내창 띄우기
       card.addEventListener('click',()=>{
-        sendPrompt(`KOPIS 공연 "${item.prfnm}" (ID: ${item.mt20id}) 상세 조회 FastAPI 엔드포인트 GET /api/kopis/detail/{mt20id} 를 작성해줘.`);
+        alert(`[${item.prfnm}] 공연 상세 정보 팝업창을 준비 중입니다! 🛠️`);
       });
       plist.appendChild(card);
     });
