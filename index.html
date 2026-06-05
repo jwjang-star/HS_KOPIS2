@@ -1,4 +1,3 @@
-
 <head>
     <meta charset="UTF-8">
     <title> HSO X KOPIS 대시보드</title> 
@@ -118,18 +117,20 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
   border:0.5px solid var(--color-border-tertiary);
   overflow:hidden;
   flex:1;
-  min-height:240px; /* [변경3] 기존: 300px */
-  max-height:320px; /* [변경3] 신규 추가 — 이게 핵심. 지도 최대 높이 제한 */
+  min-height:240px;
+  max-height:320px;
   position:relative
 }
-#kmap{width:100%;height:100%;display:block}
+#kmap{width:100%;height:100%;display:block;background:transparent}
 
 /* ─────────────────────────────────────────────
    SVG 지역 path 스타일 (변경 없음)
 ───────────────────────────────────────────── */
-.rpath{stroke:#fff;stroke-width:0.8;cursor:pointer;transition:fill .12s;fill-opacity:1}
-.rpath:hover{stroke-width:1.5;stroke:#185FA5}
-.rpath.selected{stroke:#042C53;stroke-width:1.8}
+.rpath{stroke:rgba(255,255,255,0.75);stroke-width:0.5;cursor:pointer;transition:fill .12s,stroke .12s,opacity .12s;fill-opacity:1}
+.rpath:hover{stroke-width:1.2;stroke:rgba(255,255,255,0.95);fill-opacity:0.9}
+.rpath.selected{stroke:#042C53;stroke-width:1.2}
+/* 광역시 path는 약간 투명하게 띄워서 도 위에 살며시 얹힌 느낌 */
+.rpath[data-type="metro"]{fill-opacity:0.92;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.18))}
 
 /* ─────────────────────────────────────────────
    [변경4] 라벨 폰트 크기 조정
@@ -138,34 +139,45 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
    이유: 광역시 라벨이 작아서 안보이고, 도(道) 라벨은 너무 커서 경계에 걸림
 ───────────────────────────────────────────── */
 .rlabel{
-  font-size:7.5px; /* [변경4] 기존: 8px */
-  fill:#1a3a05;
+  font-size:20px;
+  fill:#2d5a0e;
   pointer-events:none;
   font-family:var(--font-sans);
-  font-weight:400; /* [변경4] 기존: 500 (bold → regular로 얇게) */
+  font-weight:600;
+  letter-spacing:-0.3px;
+  paint-order: stroke fill;
+  stroke: rgba(255,255,255,0.82);
+  stroke-width: 5px;
+  stroke-linejoin: round;
 }
 .rlabel.metro{
-  font-size:7.5px; /* [변경4] 기존: 7px */
-  fill:#04342C
+  font-size:13px;
+  fill:#04342C;
+  font-weight:600;
+  stroke: rgba(255,255,255,0.85);
+  stroke-width: 3.5px;
 }
 .rlabel.selected{fill:#042C53}
 
-.mtt{position:absolute;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:4px 9px;font-size:11px;color:var(--color-text-primary);pointer-events:none;opacity:0;transition:opacity .1s;white-space:nowrap;top:10px;left:10px;z-index:10}
+/* 광역시 dot 스타일 */
+.metro-dot{
+  transition: r 0.12s, fill 0.12s;
+}
+.metro-dot.selected{
+  stroke:#042C53 !important;
+}
+.metro-ring{
+  transition: opacity 0.12s;
+}
+
+
 .legend {
-  position: absolute;           /* [변경] 기존: static (flex 흐름) → absolute */
-  bottom: 8px;                  /* [변경] 기존: 없음 → 하단 8px */
-  left: 50%;                    /* [변경] 기존: 없음 → 가로 중앙 기준점 */
-  transform: translateX(-50%);  /* [변경] 기존: 없음 → 정확한 중앙 정렬 */
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  justify-content: center;      /* [변경] 기존: 없음 → 아이템 중앙 정렬 */
-  background: var(--color-background-primary);   /* [변경] 기존: 없음 → 지도 위에 뜨므로 배경 추가 */
-  border: 0.5px solid var(--color-border-tertiary); /* [변경] 기존: 없음 → 경계 구분 */
-  border-radius: var(--border-radius-md);
-  padding: 4px 10px;            /* [변경] 기존: 없음 → 내부 여백 */
-  z-index: 5;                   /* [변경] 기존: 없음 → 지도 path 위에 표시 */
-  white-space: nowrap;
+  justify-content: flex-end;
+  padding: 2px 4px;
+  margin-top: 0;
 }
 
 /* .leg, .leg-dot — 변경 없음 */
@@ -223,32 +235,35 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 /* 기타 등등 CSS (변경 없음) */
 .utext {font-size:9px; color:var(--color-text-secondary); word-break:break-all; line-height:1.5; font-family:var(--font-mono)}
 
-/* [변경1] 리스트 하단 페이징(이전/다음) 버튼 스타일 추가 */
+/* 페이징 */
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 15px;
-  margin-top: 20px;
-  padding-bottom: 40px;
+  gap: 8px;
+  padding: 7px 12px;
+  border-top: 0.5px solid var(--color-border-tertiary);
+  flex-shrink: 0;
+  background: var(--color-background-primary);
 }
 .pagination button {
-  padding: 6px 14px;
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: bold;
+  padding: 3px 10px;
+  background: var(--color-background-primary);
+  color: #185FA5;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
+  height: 26px;
 }
-.pagination button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
+.pagination button:hover:not(:disabled) { background: #E6F1FB; }
+.pagination button:disabled { opacity: 0.35; cursor: not-allowed; }
 #page-info {
-  font-size: 14px;
-  font-weight: bold;
-  color: var(--color-text-primary);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  min-width: 48px;
+  text-align: center;
 }
     
 </style>
@@ -330,6 +345,12 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
         <div class="scard"><div class="scard-n" id="s-genre">전체</div><div class="scard-l">선택 장르</div></div>
       </div>
 
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#378ADD"></div>선택됨</div>
+        <div class="leg"><div class="leg-dot" style="background:#97C459"></div>도(道)</div>
+        <div class="leg"><div class="leg-dot" style="background:#5DCAA5"></div>광역시</div>
+      </div>
+
       <div class="map-box">
         <!--
           [변경6] SVG viewBox 미세 조정
@@ -345,14 +366,9 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
           aria-label="대한민국 시도 지도. 클릭하여 지역별 공연 필터링.">
           <title>대한민국 시도별 공연 필터 지도</title>
         </svg>
-        <div class="mtt" id="mtt"></div>
-             <div class="legend">
-        <div class="leg"><div class="leg-dot" style="background:#378ADD"></div>선택됨</div>
-        <div class="leg"><div class="leg-dot" style="background:#97C459"></div>도(道)</div>
-        <div class="leg"><div class="leg-dot" style="background:#5DCAA5"></div>광역시</div>
+        
       </div>
     </div>
-      </div>
 
  
 
@@ -392,9 +408,9 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
       </div>
 
       <div class="pagination" id="pagination-wrap" style="display: none;">
-        <button id="btn-prev" onclick="movePage(-1)">이전</button>
-        <span id="page-info">1 페이지</span>
-        <button id="btn-next" onclick="movePage(1)">다음</button>
+        <button id="btn-prev" onclick="movePage(-1)"><i class="ti ti-chevron-left"></i> 이전</button>
+        <span id="page-info">1 / 1 페이지</span>
+        <button id="btn-next" onclick="movePage(1)">다음 <i class="ti ti-chevron-right"></i></button>
       </div>
         
       <div class="err-banner" id="err-banner"></div>
@@ -518,12 +534,16 @@ const REAL_MAP_PATHS = [
 ];
 
 /* ══════════════════════════════════════════════
-   지도 색상 (변경 없음)
+   지도 색상
 ══════════════════════════════════════════════ */
 const FILL_DO    = '#97C459';
 const FILL_METRO = '#5DCAA5';
 const FILL_SEL   = '#378ADD';
 const FILL_HOVER = '#B5D4F4';
+
+// 광역시 도트 색상
+const DOT_METRO  = '#5DCAA5';
+const DOT_SEL    = '#378ADD';
 
 function getFill(code){
   if(code === selCode) return FILL_SEL;
@@ -534,50 +554,45 @@ function getFill(code){
 let selCode = '';
 
 /* ══════════════════════════════════════════════
-   [변경8] 라벨 위치 수동 지정 테이블 (핵심 수정)
-
-   기존 방식의 문제:
-     getCenter(d) 함수로 path의 bbox(bounding box) 중심을 자동 계산했음
-     → bbox 중심 = (min_x + max_x) / 2, (min_y + max_y) / 2
-     → 문제: 서브패스가 여러 개인 경우(섬이 많은 전남, 인천 등)
-              bbox가 육지 외곽까지 포함되어 라벨이 바다 위에 뜨거나
-              인접 지역과 겹치는 현상 발생
-
-   변경 방식:
-     각 지역의 "라벨이 실제로 보여야 할 위치"를 SVG 좌표로 직접 지정
-     좌표 기준: viewBox="144 18 480 560" (800×600 원본 좌표계)
-
-   각 좌표 결정 방법:
-     지도 이미지를 보면서 각 지역의 중심부(읍면이 많은 쪽)로 설정
-     너무 가장자리에 있으면 경계선 글씨가 다른 지역 영역으로 넘어감
+   라벨 위치 — SVG 좌표 직접 지정
+   viewBox="144 18 480 560"
+   
+   ※ 광역시는 path 위에 점(원)으로 표시하고 라벨은 옆에 붙임
+   ※ 도(道)는 영역 중앙에 크게 표시
 ══════════════════════════════════════════════ */
 const LABEL_POS = {
-  // 도(道) — 넓어서 중심 잡기 쉬움
-  '51': {x:480,  y:115},  // 강원: 동쪽 상단 넓은 곳
-  '41': {x:330,  y:170},  // 경기: 서울 아래 중심
-  '44': {x:294,  y:252},  // 충남: 중서부
-  '43': {x:428,  y:250},  // 충북: 중부
-  '47': {x:490,  y:272},  // 경북: 동부 중심 (부산 서브패스 삭제 후 라벨 위치 그대로 유지)
-  '45': {x:355,  y:335},  // 전북: 중서부
-  '46': {x:308,  y:422},  // 전남: 육지 중심 (섬 제외)
-  '48': {x:448,  y:388},  // 경남: 중심부
-  '50': {x:302,  y:554},  // 제주: 섬 중심
+  // ── 도(道) ──
+  '51': {x:490, y:120},  // 강원: 동쪽 넓은 영역 중앙
+  '41': {x:333, y:165},  // 경기: 서울 남쪽 중심
+  '44': {x:294, y:255},  // 충남: 중서부
+  '43': {x:432, y:245},  // 충북: 중부
+  '47': {x:474, y:268},  // 경북: bbox 중심
+  '45': {x:350, y:340},  // 전북: 중서부
+  '46': {x:310, y:415},  // 전남: 육지 중심
+  '48': {x:450, y:370},  // 경남: 중심부 (울산·부산 점 피해)
+  '50': {x:302, y:551},  // 제주: 섬 중심 (원래 위치 유지, SVG내 위치)
 
-  // 광역시 — 작은 영역이라 약간씩 오프셋 필요
-  /* [변경8-핵심] 겹침 문제가 있던 지역들:
-     대전(30)과 세종(36): 두 지역이 바로 인접해서 bbox 중심이 서로 겹침
-       → 대전은 위쪽(y 작게), 세종은 오른쪽 아래(x 크게, y 크게)로 분리
-     부산(26): 경북 서브패스 제거 후 라벨 위치를 부산 path 중심으로 조정
-     대구(27): 경북 라벨과 겹치지 않도록 아래쪽으로
-  */
-  '11': {x:337,  y:143},  // 서울
-  '28': {x:297,  y:150},  // 인천 (섬 제외, 본토 영역 중심)
-  '30': {x:354,  y:241},  // 대전: [변경8] 기존 자동계산값 y≈242 → y:241 (세종과 겹침 방지)
-  '36': {x:372,  y:264},  // 세종: [변경8] 기존 자동계산값 x≈366 → x:372 (대전 우측으로 이동)
-  '29': {x:330,  y:375},  // 광주
-  '27': {x:522,  y:348},  // 대구: [변경8] x:530→522 (경북 라벨과 수평 겹침 방지)
-  '31': {x:506,  y:386},  // 울산: [변경8] y:388→386 (경남과 겹침 방지)
-  '26': {x:469,  y:308},  // 부산: [변경8] 경북 서브패스 삭제 후 부산 path 중심으로 조정
+  // ── 광역시 (점 위치 = 실제 path 중심, 라벨은 별도로 dot 옆에 렌더) ──
+  '11': {x:337, y:140},  // 서울: path 중심
+  '28': {x:313, y:149},  // 인천: 본토 path 중심 (섬 제외)
+  '30': {x:352, y:240},  // 대전
+  '36': {x:368, y:260},  // 세종
+  '29': {x:330, y:374},  // 광주
+  '27': {x:518, y:346},  // 대구 위치 dot → 울산 라벨
+  '31': {x:506, y:380},  // 울산 위치 dot → 부산 라벨
+  '26': {x:468, y:307},  // 부산 위치 dot → 대구 라벨
+};
+
+// 광역시 라벨 텍스트를 dot 기준 어느 방향에 붙일지
+const METRO_LABEL_DIR = {
+  '11': 'right',  // 서울
+  '28': 'left',   // 인천
+  '30': 'left',   // 대전
+  '36': 'right',  // 세종
+  '29': 'left',   // 광주
+  '27': 'right',  // 대구
+  '31': 'right',  // 울산
+  '26': 'left',   // 부산
 };
 
 /* ══════════════════════════════════════════════
@@ -587,16 +602,25 @@ function buildMap(){
   const svg = document.getElementById('kmap');
   svg.innerHTML = '';
 
-  // 도(道) 먼저, 광역시 나중 → z-order 상 광역시가 위에 그려져 클릭 우선권 가짐
-  const sorted = [...REAL_MAP_PATHS].sort((a,b)=>{
-    if(a.type===b.type) return 0;
-    return a.type==='do' ? -1 : 1;
-  });
+  // SVG defs: 광역시 dot 그림자 필터
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = `
+    <filter id="dot-shadow" x="-80%" y="-80%" width="260%" height="260%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="rgba(0,0,0,0.28)" flood-opacity="1"/>
+    </filter>
+    <filter id="lbl-shadow" x="-10%" y="-30%" width="120%" height="160%">
+      <feFlood flood-color="rgba(255,255,255,0.85)" result="bg"/>
+      <feMerge><feMergeNode in="bg"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  `;
+  svg.appendChild(defs);
 
-  sorted.forEach(r => {
+  // ── 1단계: 도(道) path 그리기 (광역시 path는 여기서 건너뜀) ──
+  // 제주는 별도 처리 (우측 상단에 inset으로 배치)
+  const doRegions = REAL_MAP_PATHS.filter(r => r.type === 'do' && r.code !== '50');
+  doRegions.forEach(r => {
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
 
-    // path 요소
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d', r.d);
     path.setAttribute('fill', getFill(r.code));
@@ -604,41 +628,178 @@ function buildMap(){
     path.setAttribute('data-code', r.code);
     path.setAttribute('data-type', r.type);
     path.setAttribute('role','button');
-    path.setAttribute('aria-label',`${r.name} 선택 (signgucode: ${r.code})`);
+    path.setAttribute('aria-label',`${r.name} 선택`);
 
-    /* [변경8] 라벨 위치: 기존 getCenter(r.d) 자동계산 → LABEL_POS 테이블 우선 사용
-       LABEL_POS에 없는 코드는 getCenter() fallback으로 처리 */
+    path.addEventListener('mouseenter', function(){
+      if(r.code !== selCode) this.setAttribute('fill', FILL_HOVER);
+      const tt = document.getElementById('mtt');
+      // tooltip removed
+      // tooltip removed
+    });
+    path.addEventListener('mouseleave', function(){
+      if(r.code !== selCode) this.setAttribute('fill', getFill(r.code));
+      // tooltip removed
+    });
+    path.addEventListener('click', function(){
+      selCode = (selCode === r.code) ? '' : r.code;
+      currentPage = 1; totalCount = 0;
+      refreshMap(); syncTabs(); doSearch();
+    });
+
+    // 도(道) 라벨 — 영역 중앙에 크게
     const pos = LABEL_POS[r.code] || getCenter(r.d);
     const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
     lbl.setAttribute('x', pos.x);
     lbl.setAttribute('y', pos.y);
     lbl.setAttribute('text-anchor','middle');
     lbl.setAttribute('dominant-baseline','middle');
-    lbl.setAttribute('class','rlabel'+(r.type==='metro'?' metro':'')+(r.code===selCode?' selected':''));
+    lbl.setAttribute('class','rlabel'+(r.code===selCode?' selected':''));
     lbl.setAttribute('pointer-events','none');
     lbl.textContent = r.name;
-
-    path.addEventListener('mouseenter', function(){
-      if(r.code !== selCode) this.setAttribute('fill', FILL_HOVER);
-      const tt = document.getElementById('mtt');
-      tt.textContent = `${r.name}  (${r.code})`;
-      tt.style.opacity = '1';
-    });
-    path.addEventListener('mouseleave', function(){
-      if(r.code !== selCode) this.setAttribute('fill', getFill(r.code));
-      document.getElementById('mtt').style.opacity = '0';
-    });
-    path.addEventListener('click', function(){
-      selCode = (selCode === r.code) ? '' : r.code;
-      refreshMap();
-      syncTabs();
-      doSearch();
-    });
 
     g.appendChild(path);
     g.appendChild(lbl);
     svg.appendChild(g);
   });
+
+  // ── 1.5단계: 제주 — 경남 바로 아래 padding=50 위치에 렌더링 ──
+  // 경남 하단 y=405.6, padding=50 → 제주 중심 목표 y=455.6
+  // font-size: scale 밖에서 절대 13px로 별도 렌더
+  {
+    const r50 = REAL_MAP_PATHS.find(r => r.code === '50');
+    if(r50){
+      // ── path는 scale 그룹 안에 ──
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      const origCx = 302.2, origCy = 550.9;
+      const targetX = 454.5, targetY = 455.6;  // 경남 하단+50
+      const sc = 1.5;
+      const tx = targetX - origCx * sc;
+      const ty = targetY - origCy * sc;
+      g.setAttribute('transform', `translate(${tx.toFixed(1)},${ty.toFixed(1)}) scale(${sc})`);
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', r50.d);
+      path.setAttribute('fill', getFill('50'));
+      path.setAttribute('class','rpath'+(selCode==='50'?' selected':''));
+      path.setAttribute('data-code','50');
+      path.setAttribute('data-type','do');
+      path.setAttribute('role','button');
+      path.setAttribute('aria-label','제주 선택');
+
+      path.addEventListener('mouseenter', function(){
+        if('50' !== selCode) this.setAttribute('fill', FILL_HOVER);
+        const tt = document.getElementById('mtt');
+        // tooltip removed
+        // tooltip removed
+      });
+      path.addEventListener('mouseleave', function(){
+        if('50' !== selCode) this.setAttribute('fill', getFill('50'));
+        // tooltip removed
+      });
+      path.addEventListener('click', function(){
+        selCode = (selCode === '50') ? '' : '50';
+        currentPage = 1; totalCount = 0;
+        refreshMap(); syncTabs(); doSearch();
+      });
+
+      g.appendChild(path);
+      svg.appendChild(g);
+
+      // ── 라벨은 scale 밖에서 절대 좌표(targetX, targetY)에 13px로 ──
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      lbl.setAttribute('x', targetX);
+      lbl.setAttribute('y', targetY);
+      lbl.setAttribute('text-anchor','middle');
+      lbl.setAttribute('dominant-baseline','middle');
+      lbl.setAttribute('class','rlabel'+(selCode==='50'?' selected':''));
+      lbl.setAttribute('pointer-events','none');
+      lbl.setAttribute('font-size','13');
+      lbl.textContent = '제주';
+      svg.appendChild(lbl);
+    }
+  }
+
+  // ── 2단계: 광역시 — 도 위에 점(원)으로 플로팅 표시 ──
+  // 부산(26)dot→대구라벨, 대구(27)dot→울산라벨, 울산(31)dot→부산라벨
+  const METRO_NAME_SWAP = {'26':'대구', '27':'울산', '31':'부산'};
+
+  const metroRegions = REAL_MAP_PATHS.filter(r => r.type === 'metro');
+  metroRegions.forEach(r => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('data-metro-code', r.code);
+    g.setAttribute('style','cursor:pointer');
+
+    // 표시할 이름: swap 대상이면 교환된 이름, 아니면 원래 이름
+    const displayName = METRO_NAME_SWAP[r.code] || r.name;
+
+    const pos = LABEL_POS[r.code] || getCenter(r.d);
+    const isSelected = r.code === selCode;
+    const dotColor = isSelected ? DOT_SEL : DOT_METRO;
+    const dotR = isSelected ? 6 : 5;
+
+    // 외곽 링 (강조용)
+    const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ring.setAttribute('cx', pos.x);
+    ring.setAttribute('cy', pos.y);
+    ring.setAttribute('r', dotR + 3);
+    ring.setAttribute('fill', 'rgba(255,255,255,0.55)');
+    ring.setAttribute('pointer-events','none');
+    ring.setAttribute('class', 'metro-ring');
+
+    // 실제 dot
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx', pos.x);
+    dot.setAttribute('cy', pos.y);
+    dot.setAttribute('r', dotR);
+    dot.setAttribute('fill', dotColor);
+    dot.setAttribute('stroke', '#fff');
+    dot.setAttribute('stroke-width', '1.5');
+    dot.setAttribute('filter', 'url(#dot-shadow)');
+    dot.setAttribute('class', 'metro-dot'+(isSelected?' selected':''));
+    dot.setAttribute('data-code', r.code);
+    dot.setAttribute('data-type', 'metro');
+    dot.setAttribute('role','button');
+    dot.setAttribute('aria-label',`${displayName} 선택`);
+
+    // 라벨 (dot 옆에)
+    const dir = METRO_LABEL_DIR[r.code] || 'right';
+    const offset = 10;
+    const lx = dir === 'right' ? pos.x + offset : pos.x - offset;
+    const anchor = dir === 'right' ? 'start' : 'end';
+
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x', lx);
+    lbl.setAttribute('y', pos.y);
+    lbl.setAttribute('text-anchor', anchor);
+    lbl.setAttribute('dominant-baseline','middle');
+    lbl.setAttribute('class','rlabel metro'+(isSelected?' selected':''));
+    lbl.setAttribute('pointer-events','none');
+    lbl.textContent = displayName;
+
+    // 이벤트는 g 전체에
+    g.addEventListener('mouseenter', function(){
+      dot.setAttribute('fill', isSelected ? DOT_SEL : FILL_HOVER);
+      const tt = document.getElementById('mtt');
+      // tooltip removed
+      // tooltip removed
+    });
+    g.addEventListener('mouseleave', function(){
+      dot.setAttribute('fill', r.code === selCode ? DOT_SEL : DOT_METRO);
+      // tooltip removed
+    });
+    g.addEventListener('click', function(){
+      selCode = (selCode === r.code) ? '' : r.code;
+      currentPage = 1; totalCount = 0;
+      refreshMap(); syncTabs(); doSearch();
+    });
+
+    g.appendChild(ring);
+    g.appendChild(dot);
+    g.appendChild(lbl);
+    svg.appendChild(g);
+  });
+
+  // ── 3단계 끝 ──
 }
 
 // path의 bbox 중심 계산 (LABEL_POS fallback용)
@@ -653,16 +814,32 @@ function getCenter(d){
 }
 
 function refreshMap(){
+  // 도(道) path 색상 갱신 (제주 inset 포함)
   document.querySelectorAll('#kmap path[data-code]').forEach(p=>{
     const c=p.getAttribute('data-code');
     p.setAttribute('fill', getFill(c));
     p.className.baseVal='rpath'+(c===selCode?' selected':'');
   });
-  document.querySelectorAll('#kmap text.rlabel').forEach(t=>{
+  // 도(道) 라벨 갱신
+  document.querySelectorAll('#kmap text.rlabel:not(.metro)').forEach(t=>{
     const c=t.previousElementSibling?.getAttribute('data-code');
     if(!c) return;
-    const isMetro=t.classList.contains('metro');
-    t.className.baseVal='rlabel'+(isMetro?' metro':'')+(c===selCode?' selected':'');
+    t.className.baseVal='rlabel'+(c===selCode?' selected':'');
+  });
+  // 광역시 dot 갱신
+  document.querySelectorAll('#kmap circle.metro-dot').forEach(dot=>{
+    const c=dot.getAttribute('data-code');
+    const isSelected = c===selCode;
+    dot.setAttribute('fill', isSelected ? DOT_SEL : DOT_METRO);
+    dot.setAttribute('r', isSelected ? 6 : 5);
+    dot.className.baseVal='metro-dot'+(isSelected?' selected':'');
+  });
+  // 광역시 라벨 갱신
+  document.querySelectorAll('#kmap text.rlabel.metro').forEach(t=>{
+    const dot = t.parentElement?.querySelector('circle.metro-dot');
+    const c = dot?.getAttribute('data-code');
+    if(!c) return;
+    t.className.baseVal='rlabel metro'+(c===selCode?' selected':'');
   });
 }
 
@@ -674,6 +851,7 @@ function syncTabs(){
 }
 function pickRegion(el){
   selCode=el.dataset.c;
+  currentPage = 1; totalCount = 0;
   syncTabs();
   refreshMap();
   doSearch();
@@ -718,86 +896,108 @@ async function checkServer(){
   }
 }
 
-// [변경3] 현재 페이지 번호를 기억할 변수를 여기에 추가!
 let currentPage = 1;
+let totalCount  = 0;   // 서버가 내려준 전체 건수 — 다음 버튼 활성화 판단에 사용
+const PAGE_SIZE = 100;
 
 /* ══════════════════════════════════════════════
    API URL 빌더
 ══════════════════════════════════════════════ */
 function buildUrl(){
-  const base=document.getElementById('srv-url').value.trim().replace(/\/$/,'');
-  const st=document.getElementById('st').value.replace(/-/g,'');
-  const ed=document.getElementById('ed').value.replace(/-/g,'');
-  const genre=document.getElementById('sel-genre').value;
-  const state=document.getElementById('sel-state').value;
-  
-  // [변경4] cpage:'1' 고정에서 -> currentPage.toString() 동적 변환으로 수정!
-  const p=new URLSearchParams({stdate:st,eddate:ed,cpage: currentPage.toString(),rows:'100'});
-  
-  if(selCode) p.set('signgucode',selCode);
-  if(genre)   p.set('shcate',genre);
-  if(state)   p.set('prfstate',state);
+  const base  = document.getElementById('srv-url').value.trim().replace(/\/$/,'');
+  const st    = document.getElementById('st').value.replace(/-/g,'');
+  const ed    = document.getElementById('ed').value.replace(/-/g,'');
+  const genre = document.getElementById('sel-genre').value;
+  const state = document.getElementById('sel-state').value;
+  const p = new URLSearchParams({stdate:st, eddate:ed, cpage:currentPage.toString(), rows:PAGE_SIZE.toString()});
+  if(selCode) p.set('signgucode', selCode);
+  if(genre)   p.set('shcate', genre);
+  if(state)   p.set('prfstate', state);
   return `${base}/api/kopis?${p}`;
 }
 
-// [변경5] buildUrl 함수가 끝나는 중괄호 바로 밑에 페이지 이동 함수 추가!
-function movePage(step) {
-  currentPage += step;
-  if (currentPage < 1) currentPage = 1; // 1페이지 미만 방어
-  doSearch(); // 바뀐 페이지로 재검색
+/* 페이지 이동 */
+function movePage(step){
+  const maxPage = Math.ceil(totalCount / PAGE_SIZE) || 1;
+  currentPage = Math.min(Math.max(currentPage + step, 1), maxPage);
+  doSearch();
+}
+
+/* 페이징 UI 갱신 — 한 곳에서만 처리 */
+function updatePagination(itemCount){
+  const wrap    = document.getElementById('pagination-wrap');
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  const info    = document.getElementById('page-info');
+  if(!wrap) return;
+
+  if(itemCount === 0){
+    wrap.style.display = 'none';
+    return;
+  }
+
+  const maxPage = Math.ceil(totalCount / PAGE_SIZE) || 1;
+  wrap.style.display = 'flex';
+  info.textContent   = `${currentPage} / ${maxPage} 페이지`;
+  btnPrev.disabled   = (currentPage <= 1);
+  // total_count가 있으면 정확히, 없으면 items 수로 추정
+  btnNext.disabled   = totalCount
+    ? (currentPage >= maxPage)
+    : (itemCount < PAGE_SIZE);
 }
 
 /* ══════════════════════════════════════════════
    메인 조회
 ══════════════════════════════════════════════ */
 async function doSearch(){
-  const url=buildUrl();
-  const genre=document.getElementById('sel-genre').value;
-  const plist=document.getElementById('plist');
-  const banner=document.getElementById('err-banner');
-  document.getElementById('utext').textContent=url;
-  document.getElementById('ltitle').textContent=
+  const url    = buildUrl();
+  const genre  = document.getElementById('sel-genre').value;
+  const plist  = document.getElementById('plist');
+  const banner = document.getElementById('err-banner');
+
+  document.getElementById('ltitle').textContent =
     `${REGION_LABEL[selCode]||'전체'}${genre?' · '+(GENRE_LABEL[genre]||''):''}`;
-  document.getElementById('s-region').textContent=REGION_LABEL[selCode]||'전체';
-  document.getElementById('s-genre').textContent=GENRE_LABEL[genre]||'전체';
-  document.getElementById('s-total').textContent='–';
-  document.getElementById('lcnt').textContent='0건';
-  banner.style.display='none';
-  document.getElementById('btn-go').disabled=true;
-  plist.innerHTML='<div class="spin-wrap"><div class="spin"></div>불러오는 중...</div>';
-  
+  document.getElementById('s-region').textContent = REGION_LABEL[selCode]||'전체';
+  document.getElementById('s-genre').textContent  = GENRE_LABEL[genre]||'전체';
+  document.getElementById('s-total').textContent  = '–';
+  document.getElementById('lcnt').textContent     = '0건';
+  banner.style.display = 'none';
+  document.getElementById('btn-go').disabled = true;
+  plist.innerHTML = '<div class="spin-wrap"><div class="spin"></div>불러오는 중...</div>';
+  updatePagination(0);
+
   try{
-    const res=await fetch(url,{signal:AbortSignal.timeout(10000)});
-    if(!res.ok) throw{type:'http',status:res.status};
-    const json=await res.json();
-    if(json.status!=='success') throw{type:'api',detail:json.detail||'응답 오류'};
-    const items=json.data||[];
-    const total=json.total_count??items.length;
-    document.getElementById('s-total').textContent=total;
-    document.getElementById('lcnt').textContent=`${total}건`;
-    
+    const res  = await fetch(url, {signal:AbortSignal.timeout(10000)});
+    if(!res.ok) throw{type:'http', status:res.status};
+    const json = await res.json();
+    if(json.status !== 'success') throw{type:'api', detail:json.detail||'응답 오류'};
+
+    const items = json.data || [];
+    // total_count가 있으면 사용, 없으면 현재 페이지 데이터로 추정 유지
+    if(json.total_count != null) totalCount = json.total_count;
+    else if(currentPage === 1)   totalCount = items.length; // 1페이지면 최소값으로 초기화
+
+    document.getElementById('s-total').textContent = totalCount || items.length;
+    document.getElementById('lcnt').textContent    = `${totalCount || items.length}건`;
+
     if(!items.length){
-      plist.innerHTML='<div class="smsg"><i class="ti ti-calendar-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>해당 조건의 공연이 없습니다</div>';
-      // [변경4-1] 데이터가 없을 때 페이징 버튼 숨기기
-      const pageWrap = document.getElementById('pagination-wrap');
-      if(pageWrap) pageWrap.style.display = 'none';
+      plist.innerHTML = '<div class="smsg"><i class="ti ti-calendar-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>해당 조건의 공연이 없습니다</div>';
+      updatePagination(0);
       return;
     }
-    
-    plist.innerHTML='';
-    items.forEach(item=>{
-      const isOpen=item.openrun==='Y';
-      const stClass=STATE_CLASS[item.prfstate]||'tag-end';
-      const card=document.createElement('div');
-      card.className='pitem';
+
+    plist.innerHTML = '';
+    items.forEach(item => {
+      const isOpen  = item.openrun === 'Y';
+      const stClass = STATE_CLASS[item.prfstate] || 'tag-end';
+      const card    = document.createElement('div');
+      card.className = 'pitem';
       card.setAttribute('role','button');
-      
-      // 🌟 [통합 완료] 포스터 이미지 HTTP -> HTTPS 강제 변환 적용!
-      card.innerHTML=`
+      card.innerHTML = `
         <div class="poster">${item.poster
-          ?`<img src="${item.poster.replace('http://', 'https://')}" alt="${item.prfnm} 포스터" loading="lazy"
-              onerror="this.parentElement.innerHTML='<i class=\\'ti ti-photo\\' style=\\'font-size:15px;color:var(--color-text-tertiary)\\'></i>'">`
-          :`<i class="ti ti-photo" style="font-size:15px;color:var(--color-text-tertiary)" aria-hidden="true"></i>`}
+          ? `<img src="${item.poster.replace('http://','https://')}" alt="${item.prfnm} 포스터" loading="lazy"
+               onerror="this.parentElement.innerHTML='<i class=\\'ti ti-photo\\' style=\\'font-size:15px;color:var(--color-text-tertiary)\\'></i>'">`
+          : `<i class="ti ti-photo" style="font-size:15px;color:var(--color-text-tertiary)" aria-hidden="true"></i>`}
         </div>
         <div class="pinfo">
           <div class="ptitle" title="${item.prfnm}">${item.prfnm}</div>
@@ -809,43 +1009,28 @@ async function doSearch(){
             ${isOpen?'<span class="tag tag-open">오픈런</span>':''}
           </div>
         </div>`;
-        
-      // [수정됨] 임시 안내창 띄우기
-      card.addEventListener('click',()=>{
+      card.addEventListener('click', () => {
         alert(`[${item.prfnm}] 공연 상세 정보 팝업창을 준비 중입니다! 🛠️`);
       });
       plist.appendChild(card);
     });
 
-    // [변경4-2] 데이터 로드 완료 후 페이징 버튼 상태 업데이트
-    const pageWrap = document.getElementById('pagination-wrap');
-    if (pageWrap) {
-      pageWrap.style.display = 'flex';
-      document.getElementById('page-info').textContent = `${currentPage} 페이지`;
-      document.getElementById('btn-prev').disabled = (currentPage === 1);
-      document.getElementById('btn-next').disabled = (items.length < 100);
-    }
+    updatePagination(items.length);
 
   }catch(err){
-    const isNet=err instanceof TypeError||err?.name==='AbortError';
-    plist.innerHTML=`<div class="smsg"><i class="ti ti-server-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>${isNet?'FastAPI 서버에 연결할 수 없습니다':'API 응답 오류'}<br><span style="font-size:10px;color:var(--color-text-tertiary)">${isNet?'uvicorn main:app --reload':'HTTP '+(err?.status||'')}</span></div>`;
-    banner.style.display='block';
-    banner.textContent=isNet?'서버 실행: uvicorn main:app --reload':'서버 오류: '+(err?.status||err?.detail||'');
-    document.getElementById('s-total').textContent='–';
-    
-// [변경4-3] 에러 발생 시 페이징 버튼 숨기기
-    const pageWrap = document.getElementById('pagination-wrap');
-    if(pageWrap) pageWrap.style.display = 'none';
-
-  } finally {
+    const isNet = err instanceof TypeError || err?.name === 'AbortError';
+    plist.innerHTML = `<div class="smsg"><i class="ti ti-server-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>${isNet?'FastAPI 서버에 연결할 수 없습니다':'API 응답 오류'}<br><span style="font-size:10px;color:var(--color-text-tertiary)">${isNet?'uvicorn main:app --reload':'HTTP '+(err?.status||'')}</span></div>`;
+    banner.style.display = 'block';
+    banner.textContent   = isNet ? '서버 실행: uvicorn main:app --reload' : '서버 오류: '+(err?.status||err?.detail||'');
+    document.getElementById('s-total').textContent = '–';
+    updatePagination(0);
+  }finally{
     document.getElementById('btn-go').disabled = false;
   }
-} // <--- 여기까지가 doSearch 함수의 끝입니다.
+}
 
-// 🌟 [수정됨] 실수로 지워졌던 윗부분(addEventListener)을 다시 살렸습니다!
 document.getElementById('btn-go').addEventListener('click', () => {
-  // [변경5] 조회 버튼을 누를 때마다 무조건 1페이지로 초기화!
-  currentPage = 1;
+  currentPage = 1; totalCount = 0;
   doSearch();
 });
     
