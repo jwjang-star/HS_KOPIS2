@@ -220,6 +220,37 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 .urlbox{padding:7px 12px;border-top:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);flex-shrink:0}
 .ulabel{font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px}
 .utext{font-size:9px;color:var(--color-text-secondary);word-break:break-all;line-height:1.5;font-family:var(--font-mono)}
+/* 기타 등등 CSS (변경 없음) */
+.utext {font-size:9px; color:var(--color-text-secondary); word-break:break-all; line-height:1.5; font-family:var(--font-mono)}
+
+/* [변경1] 리스트 하단 페이징(이전/다음) 버튼 스타일 추가 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 20px;
+  padding-bottom: 40px;
+}
+.pagination button {
+  padding: 6px 14px;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.pagination button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+#page-info {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--color-text-primary);
+}
+    
 </style>
 
 <h2 class="sr-only">🌠 HSO X KOPIS 대시보드</h2>
