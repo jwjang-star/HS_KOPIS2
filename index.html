@@ -749,7 +749,7 @@ function movePage(step) {
 }
 
 /* ══════════════════════════════════════════════
-   메인 조회 (변경 없음)
+   메인 조회
 ══════════════════════════════════════════════ */
 async function doSearch(){
   const url=buildUrl();
@@ -792,9 +792,11 @@ async function doSearch(){
       const card=document.createElement('div');
       card.className='pitem';
       card.setAttribute('role','button');
+      
+      // 🌟 [통합 완료] 포스터 이미지 HTTP -> HTTPS 강제 변환 적용!
       card.innerHTML=`
         <div class="poster">${item.poster
-          ?`<img src="${item.poster}" alt="${item.prfnm} 포스터" loading="lazy"
+          ?`<img src="${item.poster.replace('http://', 'https://')}" alt="${item.prfnm} 포스터" loading="lazy"
               onerror="this.parentElement.innerHTML='<i class=\\'ti ti-photo\\' style=\\'font-size:15px;color:var(--color-text-tertiary)\\'></i>'">`
           :`<i class="ti ti-photo" style="font-size:15px;color:var(--color-text-tertiary)" aria-hidden="true"></i>`}
         </div>
@@ -808,20 +810,20 @@ async function doSearch(){
             ${isOpen?'<span class="tag tag-open">오픈런</span>':''}
           </div>
         </div>`;
-      // [수정됨] 존재하지 않는 sendPrompt 대신 임시 안내창 띄우기
+        
+      // [수정됨] 임시 안내창 띄우기
       card.addEventListener('click',()=>{
         alert(`[${item.prfnm}] 공연 상세 정보 팝업창을 준비 중입니다! 🛠️`);
       });
       plist.appendChild(card);
     });
 
-    // [변경4-2] 데이터 로드 완료 후 페이징 버튼 상태 업데이트 로직 추가
+    // [변경4-2] 데이터 로드 완료 후 페이징 버튼 상태 업데이트
     const pageWrap = document.getElementById('pagination-wrap');
     if (pageWrap) {
       pageWrap.style.display = 'flex';
       document.getElementById('page-info').textContent = `${currentPage} 페이지`;
       document.getElementById('btn-prev').disabled = (currentPage === 1);
-      // 가져온 데이터가 100개 미만이면 다음 페이지가 없다고 간주하여 버튼 비활성화
       document.getElementById('btn-next').disabled = (items.length < 100);
     }
 
@@ -840,8 +842,6 @@ async function doSearch(){
     document.getElementById('btn-go').disabled=false;
   }
 }
-/* 기존 이벤트 리스너 어딘가에 위치 (변경 없음) */
-document.getElementById('btn-go').addEventListener('click', () => {
   // [변경5] 조회 버튼을 누를 때마다 무조건 1페이지로 초기화!
   currentPage = 1;
   
