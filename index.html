@@ -383,29 +383,28 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
         <span class="rtab" data-c="29" data-n="광주" onclick="pickRegion(this)">광주</span>
         <span class="rtab" data-c="50" data-n="제주" onclick="pickRegion(this)">제주</span>
       </div>
+      
       <div class="plist" id="plist">
-    
-    <div class="pagination" id="pagination-wrap" style="display: none;">
-      <button id="btn-prev" onclick="movePage(-1)">이전</button>
-      <span id="page-info">1 페이지</span>
-      <button id="btn-next" onclick="movePage(1)">다음</button>
+        <div class="smsg">
+          <i class="ti ti-loader" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>
+          서버 연결 확인 중...
         </div>
-            </div>
+      </div>
+
+      <div class="pagination" id="pagination-wrap" style="display: none;">
+        <button id="btn-prev" onclick="movePage(-1)">이전</button>
+        <span id="page-info">1 페이지</span>
+        <button id="btn-next" onclick="movePage(1)">다음</button>
+      </div>
         
-          <div class="smsg">
-        <i class="ti ti-loader" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>
-        서버 연결 확인 중...
-    
-    </div>
       <div class="err-banner" id="err-banner"></div>
-    <div class="urlbox" style="display: none;">
+      
+      <div class="urlbox" style="display: none;">
         <div class="ulabel"><i class="ti ti-link" aria-hidden="true"></i> FastAPI 요청 URL</div>
         <div class="utext" id="utext">–</div>
       </div>
-      </div>
-    </div>
-  </div>
-</div>
+      
+    </div> </div>
 
 <script>
 /* ══════════════════════════════════════════════
@@ -849,6 +848,7 @@ document.getElementById('btn-go').addEventListener('click', () => {
   currentPage = 1;
   doSearch();
 });
+    
 /* ══════════════════════════════════════════════
    페이지 로드 시: 기본 날짜 자동 세팅 (오늘 ~ 한 달 뒤)
 ══════════════════════════════════════════════ */
