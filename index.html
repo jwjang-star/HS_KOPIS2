@@ -718,8 +718,18 @@ async function checkServer(){
   }
 }
 
+}catch(e){
+    dot.className='srv-dot err';
+    txt.textContent=`연결 실패`;
+    return false;
+  }
+}
+
+// [변경3] 현재 페이지 번호를 기억할 변수를 여기에 추가!
+let currentPage = 1;
+
 /* ══════════════════════════════════════════════
-   API URL 빌더 (변경 없음)
+   API URL 빌더
 ══════════════════════════════════════════════ */
 function buildUrl(){
   const base=document.getElementById('srv-url').value.trim().replace(/\/$/,'');
@@ -727,11 +737,21 @@ function buildUrl(){
   const ed=document.getElementById('ed').value.replace(/-/g,'');
   const genre=document.getElementById('sel-genre').value;
   const state=document.getElementById('sel-state').value;
-  const p=new URLSearchParams({stdate:st,eddate:ed,cpage:'1',rows:'100'});
+  
+  // [변경4] cpage:'1' 고정에서 -> currentPage.toString() 동적 변환으로 수정!
+  const p=new URLSearchParams({stdate:st,eddate:ed,cpage: currentPage.toString(),rows:'100'});
+  
   if(selCode) p.set('signgucode',selCode);
   if(genre)   p.set('shcate',genre);
   if(state)   p.set('prfstate',state);
   return `${base}/api/kopis?${p}`;
+}
+
+// [변경5] buildUrl 함수가 끝나는 중괄호 바로 밑에 페이지 이동 함수 추가!
+function movePage(step) {
+  currentPage += step;
+  if (currentPage < 1) currentPage = 1; // 1페이지 미만 방어
+  doSearch(); // 바뀐 페이지로 재검색
 }
 
 /* ══════════════════════════════════════════════
