@@ -834,17 +834,19 @@ async function doSearch(){
     banner.textContent=isNet?'서버 실행: uvicorn main:app --reload':'서버 오류: '+(err?.status||err?.detail||'');
     document.getElementById('s-total').textContent='–';
     
-    // [변경4-3] 에러 발생 시 페이징 버튼 숨기기
+// [변경4-3] 에러 발생 시 페이징 버튼 숨기기
     const pageWrap = document.getElementById('pagination-wrap');
     if(pageWrap) pageWrap.style.display = 'none';
 
-  }finally{
-    document.getElementById('btn-go').disabled=false;
+  } finally {
+    document.getElementById('btn-go').disabled = false;
   }
-}
+} // <--- 여기까지가 doSearch 함수의 끝입니다.
+
+// 🌟 [수정됨] 실수로 지워졌던 윗부분(addEventListener)을 다시 살렸습니다!
+document.getElementById('btn-go').addEventListener('click', () => {
   // [변경5] 조회 버튼을 누를 때마다 무조건 1페이지로 초기화!
   currentPage = 1;
-  
   doSearch();
 });
 /* ══════════════════════════════════════════════
