@@ -765,6 +765,7 @@ async function doSearch(){
   banner.style.display='none';
   document.getElementById('btn-go').disabled=true;
   plist.innerHTML='<div class="spin-wrap"><div class="spin"></div>불러오는 중...</div>';
+  
   try{
     const res=await fetch(url,{signal:AbortSignal.timeout(10000)});
     if(!res.ok) throw{type:'http',status:res.status};
@@ -774,10 +775,15 @@ async function doSearch(){
     const total=json.total_count??items.length;
     document.getElementById('s-total').textContent=total;
     document.getElementById('lcnt').textContent=`${total}건`;
+    
     if(!items.length){
       plist.innerHTML='<div class="smsg"><i class="ti ti-calendar-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>해당 조건의 공연이 없습니다</div>';
+      // [변경4-1] 데이터가 없을 때 페이징 버튼 숨기기
+      const pageWrap = document.getElementById('pagination-wrap');
+      if(pageWrap) pageWrap.style.display = 'none';
       return;
     }
+    
     plist.innerHTML='';
     items.forEach(item=>{
       const isOpen=item.openrun==='Y';
@@ -806,17 +812,39 @@ async function doSearch(){
       });
       plist.appendChild(card);
     });
+
+    // [변경4-2] 데이터 로드 완료 후 페이징 버튼 상태 업데이트 로직 추가
+    const pageWrap = document.getElementById('pagination-wrap');
+    if (pageWrap) {
+      pageWrap.style.display = 'flex';
+      document.getElementById('page-info').textContent = `${currentPage} 페이지`;
+      document.getElementById('btn-prev').disabled = (currentPage === 1);
+      // 가져온 데이터가 100개 미만이면 다음 페이지가 없다고 간주하여 버튼 비활성화
+      document.getElementById('btn-next').disabled = (items.length < 100);
+    }
+
   }catch(err){
     const isNet=err instanceof TypeError||err?.name==='AbortError';
     plist.innerHTML=`<div class="smsg"><i class="ti ti-server-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>${isNet?'FastAPI 서버에 연결할 수 없습니다':'API 응답 오류'}<br><span style="font-size:10px;color:var(--color-text-tertiary)">${isNet?'uvicorn main:app --reload':'HTTP '+(err?.status||'')}</span></div>`;
     banner.style.display='block';
     banner.textContent=isNet?'서버 실행: uvicorn main:app --reload':'서버 오류: '+(err?.status||err?.detail||'');
     document.getElementById('s-total').textContent='–';
+    
+    // [변경4-3] 에러 발생 시 페이징 버튼 숨기기
+    const pageWrap = document.getElementById('pagination-wrap');
+    if(pageWrap) pageWrap.style.display = 'none';
+
   }finally{
     document.getElementById('btn-go').disabled=false;
   }
 }
-
+/* 기존 이벤트 리스너 어딘가에 위치 (변경 없음) */
+document.getElementById('btn-search').addEventListener('click', () => {
+  // [변경5] 조회 버튼을 누를 때마다 무조건 1페이지로 초기화!
+  currentPage = 1;
+  
+  doSearch();
+});
 /* ══════════════════════════════════════════════
    페이지 로드 시: 기본 날짜 자동 세팅 (오늘 ~ 한 달 뒤)
 ══════════════════════════════════════════════ */
