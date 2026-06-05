@@ -578,9 +578,9 @@ const LABEL_POS = {
   '30': {x:352, y:240},  // 대전
   '36': {x:368, y:260},  // 세종
   '29': {x:330, y:374},  // 광주
-  '27': {x:518, y:346},  // 대구 위치 dot → 울산 라벨
-  '31': {x:506, y:380},  // 울산 위치 dot → 부산 라벨
-  '26': {x:468, y:307},  // 부산 위치 dot → 대구 라벨
+  '26': {x:506, y:380},  // 부산
+  '27': {x:468, y:307},  // 대구
+  '31': {x:518, y:346},  // 울산
 };
 
 // 광역시 라벨 텍스트를 dot 기준 어느 방향에 붙일지
@@ -590,9 +590,9 @@ const METRO_LABEL_DIR = {
   '30': 'left',   // 대전
   '36': 'right',  // 세종
   '29': 'left',   // 광주
+  '26': 'right',  // 부산
   '27': 'right',  // 대구
-  '31': 'right',  // 울산
-  '26': 'left',   // 부산
+  '31': 'left',   // 울산
 };
 
 /* ══════════════════════════════════════════════
@@ -720,17 +720,11 @@ function buildMap(){
   }
 
   // ── 2단계: 광역시 — 도 위에 점(원)으로 플로팅 표시 ──
-  // 부산(26)dot→대구라벨, 대구(27)dot→울산라벨, 울산(31)dot→부산라벨
-  const METRO_NAME_SWAP = {'26':'대구', '27':'울산', '31':'부산'};
-
   const metroRegions = REAL_MAP_PATHS.filter(r => r.type === 'metro');
   metroRegions.forEach(r => {
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
     g.setAttribute('data-metro-code', r.code);
     g.setAttribute('style','cursor:pointer');
-
-    // 표시할 이름: swap 대상이면 교환된 이름, 아니면 원래 이름
-    const displayName = METRO_NAME_SWAP[r.code] || r.name;
 
     const pos = LABEL_POS[r.code] || getCenter(r.d);
     const isSelected = r.code === selCode;
@@ -759,7 +753,7 @@ function buildMap(){
     dot.setAttribute('data-code', r.code);
     dot.setAttribute('data-type', 'metro');
     dot.setAttribute('role','button');
-    dot.setAttribute('aria-label',`${displayName} 선택`);
+    dot.setAttribute('aria-label',`${r.name} 선택`);
 
     // 라벨 (dot 옆에)
     const dir = METRO_LABEL_DIR[r.code] || 'right';
@@ -774,7 +768,7 @@ function buildMap(){
     lbl.setAttribute('dominant-baseline','middle');
     lbl.setAttribute('class','rlabel metro'+(isSelected?' selected':''));
     lbl.setAttribute('pointer-events','none');
-    lbl.textContent = displayName;
+    lbl.textContent = r.name;
 
     // 이벤트는 g 전체에
     g.addEventListener('mouseenter', function(){
