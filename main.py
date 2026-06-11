@@ -69,7 +69,7 @@ def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, si
     recipients = {}
 
     # 환경변수에서 구글 시트 CSV URL 불러오기
-    sheet_url = os.environ.get("https://docs.google.com/spreadsheets/d/187lChUbX65LVPOYd5ngC7uk63pBGJFeoiGNSpxtULvE/edit?gid=0#gid=0", "")
+    sheet_url = os.environ.get("SHEET_CSV_URL", "")
     if not sheet_url:
         raise ValueError("환경변수 SHEET_CSV_URL이 설정되지 않았습니다.")
 
