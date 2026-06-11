@@ -68,7 +68,7 @@ def load_recipients(filepath="recipients.csv"):
     """
     recipients = {}  # 빈 딕셔너리 준비
 
-    with open(filepath, encoding="euc-kr") as f:
+    with open(filepath, encoding="utf-8") as f:
         reader = csv.DictReader(f)  # 첫 줄을 헤더로 자동 인식
         for row in reader:
             region = row["지역"].strip()   # 지역 컬럼
