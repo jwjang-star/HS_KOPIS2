@@ -123,7 +123,7 @@ def send_email(to_email: str, subject: str, body: str):
     msg.attach(MIMEText(body, "plain", "utf-8"))  # 본문 텍스트 첨부
 
     # Gmail SMTP 서버에 연결 후 발송
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as smtp:
         smtp.login(sender_email, sender_pw)   # 로그인
         smtp.send_message(msg)                # 발송
 
@@ -186,7 +186,7 @@ def send_daily_email(regions: str = ""):
             
             # 🌟 [방어막 2] KOPIS가 이상한 데이터를 줘도 뻗지 않게 막기
             try:
-                response = requests.get(KOPIS_URL, params=params)
+                response = requests.get(KOPIS_URL, params=params, timeout=10)
                 root = ET.fromstring(response.content)
                 
                 performances = []
