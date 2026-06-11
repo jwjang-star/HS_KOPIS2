@@ -67,6 +67,34 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 .btn-go{display:flex;align-items:center;gap:4px;font-size:12px;padding:0 13px;height:30px;border-radius:var(--border-radius-md);background:#185FA5;color:#E6F1FB;border:none;cursor:pointer;font-weight:500;white-space:nowrap}
 .btn-go:hover{background:#0C447C}
 .btn-go:disabled{opacity:.5;cursor:not-allowed}
+/*메일 버튼*/
+.btn-mail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 0 13px;
+  height: 30px;
+  border-radius: var(--border-radius-md);
+  background: #27500A;
+  color: #EAF3DE;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.btn-mail:hover { background: #3a7010; }  
+.mail-rtag {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 0.5px solid var(--color-border-tertiary);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  background: var(--color-background-primary);
+}
+.mail-rtag:hover { border-color: #378ADD; color: #185FA5; }
+.mail-rtag.on { background: #EAF3DE; color: #27500A; border-color: #C0DD97; }
 .srv-badge{display:flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px;border-radius:20px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);white-space:nowrap}
 .srv-dot{width:6px;height:6px;border-radius:50%;background:#888}
 .srv-dot.ok{background:#639922}
@@ -335,7 +363,59 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 <button class="btn-go" id="btn-go" onclick="doSearch()">
   <i class="ti ti-search" aria-hidden="true" style="font-size:13px"></i>조회
 </button>
+<button class="btn-mail" id="btn-mail" onclick="openMailModal()">
+  <i class="ti ti-mail" style="font-size:13px" aria-hidden="true"></i>이메일 발송
+</button>      
   </div>
+<!-- 이메일 발송 모달 -->
+<div id="mail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);width:360px;overflow:hidden;">
+    
+    <!-- 모달 헤더 -->
+    <div style="padding:12px 16px;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:13px;font-weight:500;color:var(--color-text-primary);">
+        <i class="ti ti-mail" style="margin-right:5px;"></i>이메일 발송
+      </span>
+      <span onclick="closeMailModal()" style="cursor:pointer;font-size:16px;color:var(--color-text-tertiary);">✕</span>
+    </div>
+
+    <!-- 지역 선택 -->
+    <div style="padding:14px 16px;border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px;">발송 지역 선택</div>
+      <div id="mail-region-list" style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span class="mail-rtag on" data-r="전체" onclick="toggleMailRegion(this)">전체</span>
+        <span class="mail-rtag" data-r="서울" onclick="toggleMailRegion(this)">서울</span>
+        <span class="mail-rtag" data-r="경기" onclick="toggleMailRegion(this)">경기</span>
+        <span class="mail-rtag" data-r="인천" onclick="toggleMailRegion(this)">인천</span>
+        <span class="mail-rtag" data-r="대전" onclick="toggleMailRegion(this)">대전</span>
+        <span class="mail-rtag" data-r="충남" onclick="toggleMailRegion(this)">충남</span>
+        <span class="mail-rtag" data-r="충북" onclick="toggleMailRegion(this)">충북</span>
+        <span class="mail-rtag" data-r="경북" onclick="toggleMailRegion(this)">경북</span>
+        <span class="mail-rtag" data-r="전북" onclick="toggleMailRegion(this)">전북</span>
+        <span class="mail-rtag" data-r="부산" onclick="toggleMailRegion(this)">부산</span>
+        <span class="mail-rtag" data-r="경남" onclick="toggleMailRegion(this)">경남</span>
+        <span class="mail-rtag" data-r="세종" onclick="toggleMailRegion(this)">세종</span>
+        <span class="mail-rtag" data-r="강원" onclick="toggleMailRegion(this)">강원</span>
+        <span class="mail-rtag" data-r="경남진주" onclick="toggleMailRegion(this)">경남(진주)</span>
+      </div>
+    </div>
+
+    <!-- 선택된 지역 표시 -->
+    <div style="padding:10px 16px;border-bottom:0.5px solid var(--color-border-tertiary);min-height:38px;">
+      <div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:4px;">발송 대상</div>
+      <div id="mail-selected-display" style="font-size:11px;color:var(--color-text-primary);">전체 지역</div>
+    </div>
+
+    <!-- 발송 버튼 -->
+    <div style="padding:12px 16px;display:flex;justify-content:flex-end;gap:8px;">
+      <button onclick="closeMailModal()" style="font-size:12px;padding:0 14px;height:30px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;">취소</button>
+      <button id="btn-send-mail" onclick="sendMail()" style="font-size:12px;padding:0 14px;height:30px;border-radius:var(--border-radius-md);background:#27500A;color:#EAF3DE;border:none;cursor:pointer;font-weight:500;">발송하기</button>
+    </div>
+
+    <!-- 발송 결과 -->
+    <div id="mail-result" style="display:none;padding:10px 16px;border-top:0.5px solid var(--color-border-tertiary);font-size:11px;line-height:1.7;color:var(--color-text-secondary);"></div>
+  </div>
+</div>
 
   <div class="body">
     <div class="map-col">
@@ -1072,4 +1152,98 @@ checkServer().then(ok=>{
       <span style="font-size:10px;color:var(--color-text-tertiary)">uvicorn main:app --reload</span>
     </div>`;
 });
+
+/* ══════════════════════════════════════════
+   이메일 발송 모달
+══════════════════════════════════════════ */
+let selectedMailRegions = ['전체'];  // 선택된 지역 목록
+
+function openMailModal() {
+  document.getElementById('mail-modal').style.display = 'flex';
+  document.getElementById('mail-result').style.display = 'none';
+  updateMailSelectedDisplay();
+}
+
+function closeMailModal() {
+  document.getElementById('mail-modal').style.display = 'none';
+}
+
+function toggleMailRegion(el) {
+  const region = el.dataset.r;
+
+  if (region === '전체') {
+    // 전체 선택 시 다른 태그 모두 해제
+    selectedMailRegions = ['전체'];
+    document.querySelectorAll('.mail-rtag').forEach(t => {
+      t.classList.toggle('on', t.dataset.r === '전체');
+    });
+  } else {
+    // 개별 지역 선택 시 '전체' 해제
+    const allTag = document.querySelector('.mail-rtag[data-r="전체"]');
+    allTag.classList.remove('on');
+    selectedMailRegions = selectedMailRegions.filter(r => r !== '전체');
+
+    // 이미 선택된 지역이면 해제, 아니면 추가
+    if (selectedMailRegions.includes(region)) {
+      selectedMailRegions = selectedMailRegions.filter(r => r !== region);
+      el.classList.remove('on');
+    } else {
+      selectedMailRegions.push(region);
+      el.classList.add('on');
+    }
+
+    // 아무것도 선택 안 되면 전체로 되돌리기
+    if (selectedMailRegions.length === 0) {
+      selectedMailRegions = ['전체'];
+      allTag.classList.add('on');
+    }
+  }
+
+  updateMailSelectedDisplay();
+}
+
+function updateMailSelectedDisplay() {
+  const display = document.getElementById('mail-selected-display');
+  if (selectedMailRegions.includes('전체')) {
+    display.textContent = '전체 지역 (모든 지점)';
+  } else {
+    display.textContent = selectedMailRegions.join(', ') + ' 지역';
+  }
+}
+
+async function sendMail() {
+  const base = document.getElementById('srv-url').value.trim().replace(/\/$/, '');
+  const btn  = document.getElementById('btn-send-mail');
+  const result = document.getElementById('mail-result');
+
+  btn.disabled = true;
+  btn.textContent = '발송 중...';
+  result.style.display = 'none';
+
+  // 선택 지역을 쿼리 파라미터로 전달
+  const regions = selectedMailRegions.includes('전체') ? '' : selectedMailRegions.join(',');
+  const url = regions
+    ? `${base}/api/send-daily-email?regions=${encodeURIComponent(regions)}`
+    : `${base}/api/send-daily-email`;
+
+  try {
+    const res  = await fetch(url, { signal: AbortSignal.timeout(30000) });
+    const json = await res.json();
+
+    const success = json.results?.filter(r => r.status === 'success').length || 0;
+    const fail    = json.results?.filter(r => r.status === 'fail').length || 0;
+
+    result.style.display = 'block';
+    result.innerHTML = `
+      ✅ 발송 완료: ${success}건<br>
+      ${fail > 0 ? `❌ 실패: ${fail}건` : ''}
+    `;
+  } catch (e) {
+    result.style.display = 'block';
+    result.innerHTML = '❌ 발송 실패: 서버 연결을 확인해주세요.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '발송하기';
+  }
+}
 </script>
