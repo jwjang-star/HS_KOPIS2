@@ -61,7 +61,9 @@ def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, si
         
     return {"status": "success", "total_count": len(data), "data": data}
 
-    def load_recipients():
+
+# 🌟 [수정 완료] 들여쓰기 원상복구!
+def load_recipients():
     """
     구글 스프레드시트(웹에 게시된 CSV URL)에서 수신자 목록을 읽어옵니다.
     반환 형태: {"서울": ["email1@...", "email2@..."], "경기": [...], ...}
@@ -71,27 +73,32 @@ def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, si
     # 환경변수에서 구글 시트 CSV URL 불러오기
     sheet_url = os.environ.get("SHEET_CSV_URL", "")
     if not sheet_url:
-        raise ValueError("환경변수 SHEET_CSV_URL이 설정되지 않았습니다.")
+        print("🚨 환경변수 SHEET_CSV_URL이 설정되지 않았습니다.")
+        return recipients
 
-    # 구글 시트에서 CSV 데이터 가져오기
-    response = requests.get(sheet_url, timeout=10)
-    response.raise_for_status()  # HTTP 오류 시 예외 발생
+    try:
+        # 구글 시트에서 CSV 데이터 가져오기
+        response = requests.get(sheet_url, timeout=10)
+        response.raise_for_status()  # HTTP 오류 시 예외 발생
 
-    # 텍스트 디코딩 후 DictReader로 파싱
-    decoded = response.content.decode("utf-8")
-    reader  = csv.DictReader(decoded.splitlines())
+        # 텍스트 디코딩 후 DictReader로 파싱
+        decoded = response.content.decode("utf-8")
+        reader  = csv.DictReader(decoded.splitlines())
 
-    for row in reader:
-        region = row["지역"].strip()
-        email  = row["지점 이메일"].strip()
+        for row in reader:
+            region = row.get("지역", "").strip()
+            email  = row.get("지점 이메일", "").strip()
 
-        if not region or not email:    # 빈 줄 건너뛰기
-            continue
+            if not region or not email:    # 빈 줄 건너뛰기
+                continue
 
-        if region not in recipients:
-            recipients[region] = []    # 지역 첫 등장 시 리스트 생성
+            if region not in recipients:
+                recipients[region] = []    # 지역 첫 등장 시 리스트 생성
 
-        recipients[region].append(email)
+            recipients[region].append(email)
+            
+    except Exception as e:
+        print(f"🚨 명부 불러오기 실패: {e}")
 
     return recipients
 
@@ -103,7 +110,6 @@ def send_email(to_email: str, subject: str, body: str):
     subject  : 이메일 제목
     body     : 이메일 본문 (현재는 텍스트, 추후 HTML로 교체 예정)
     """
-
     # 환경변수에서 발신자 정보 불러오기 (Render에 등록한 값)
     config        = os.environ.get("EMAIL_CONFIG", ":").split(":")
     sender_email  = config[0]   # jw.jang@thehyoosik.com
@@ -121,11 +127,10 @@ def send_email(to_email: str, subject: str, body: str):
         smtp.login(sender_email, sender_pw)   # 로그인
         smtp.send_message(msg)                # 발송
 
+
 def build_email_body(region: str, performances: list):
     """
     지역명과 공연 리스트를 받아서 이메일 본문 텍스트를 만들어 반환합니다.
-    region       : 지역명 (예: "서울")
-    performances : KOPIS에서 받아온 공연 딕셔너리 리스트
     """
     today = datetime.today().strftime("%Y-%m-%d")
 
@@ -147,16 +152,16 @@ def build_email_body(region: str, performances: list):
 
     return body
 
+
 @app.get("/api/send-daily-email")
 def send_daily_email(regions: str = ""):
     """
-    매일 cron-job.org가 이 주소를 호출하면
     지역별로 KOPIS 데이터를 조회해서 각 지점에 이메일을 발송합니다.
     """
     today = datetime.today().strftime("%Y%m%d")  # KOPIS 날짜 형식: 20250610
 
-    # 1. CSV에서 지역별 수신자 목록 불러오기
-    recipients = load_recipients("recipients.csv")
+    # 🌟 [수정 완료] 괄호 안의 "recipients.csv" 삭제 완료!
+    recipients = load_recipients()
 
     # KOPIS 지역코드 매핑표
     region_code = {
