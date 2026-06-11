@@ -94,7 +94,7 @@ def send_email(to_email: str, subject: str, body: str):
     """
 
     # 환경변수에서 발신자 정보 불러오기 (Render에 등록한 값)
-    config        = os.environ.get("EMAIL_CONFIG", "").split(":")
+    config        = os.environ.get("EMAIL_CONFIG", ":").split(":")
     sender_email  = config[0]   # jw.jang@thehyoosik.com
     sender_pw     = config[1]   # 앱 비밀번호
 
@@ -137,7 +137,7 @@ def build_email_body(region: str, performances: list):
     return body
 
 @app.get("/api/send-daily-email")
-def send_daily_email():
+def send_daily_email(regions: str = ""):
     """
     매일 cron-job.org가 이 주소를 호출하면
     지역별로 KOPIS 데이터를 조회해서 각 지점에 이메일을 발송합니다.
@@ -164,6 +164,11 @@ def send_daily_email():
     }
 
     results = []  # 발송 결과 기록용
+
+    # 선택 지역 필터링 (프론트에서 regions 파라미터가 오면 해당 지역만 발송)
+    if regions:
+        region_list = [r.strip() for r in regions.split(",")]
+        recipients = {k: v for k, v in recipients.items() if k in region_list}
 
     # 2. 지역별로 순서대로 처리
     for region, email_list in recipients.items():
