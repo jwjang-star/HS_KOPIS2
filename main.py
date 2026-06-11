@@ -123,7 +123,9 @@ def send_email(to_email: str, subject: str, body: str):
     msg.attach(MIMEText(body, "plain", "utf-8"))  # 본문 텍스트 첨부
 
     # Gmail SMTP 서버에 연결 후 발송
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as smtp:
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as smtp:
+        smtp.ehlo()          # 구글 서버에 인사
+        smtp.starttls()      # 암호화 통신 시작 (가장 중요)
         smtp.login(sender_email, sender_pw)   # 로그인
         smtp.send_message(msg)                # 발송
 
