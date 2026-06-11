@@ -155,83 +155,74 @@ def build_email_body(region: str, performances: list):
 
 @app.get("/api/send-daily-email")
 def send_daily_email(regions: str = ""):
-    """
-    지역별로 KOPIS 데이터를 조회해서 각 지점에 이메일을 발송합니다.
-    """
-    today = datetime.today().strftime("%Y%m%d")  # KOPIS 날짜 형식: 20250610
+    # 🌟 함수 전체에 무적 방어막(try)을 칩니다!
+    try:
+        today = datetime.today().strftime("%Y%m%d")
+        recipients = load_recipients()
 
-    # 🌟 [수정 완료] 괄호 안의 "recipients.csv" 삭제 완료!
-    recipients = load_recipients()
-
-    # KOPIS 지역코드 매핑표
-    region_code = {
-        "서울": "11",
-        "경기": "41",
-        "인천": "28",
-        "대전": "30",
-        "충남": "44",
-        "충북": "43",
-        "경북": "47",
-        "전북": "45",
-        "부산": "26",
-        "경남": "48",
-        "세종": "36",
-        "강원": "51",
-    }
-
-    results = []  # 발송 결과 기록용
-
-    # 선택 지역 필터링 (프론트에서 regions 파라미터가 오면 해당 지역만 발송)
-    if regions:
-        region_list = [r.strip() for r in regions.split(",")]
-        recipients = {k: v for k, v in recipients.items() if k in region_list}
-
-    # 2. 지역별로 순서대로 처리
-    for region, email_list in recipients.items():
-
-        # 3. 해당 지역의 KOPIS 공연 데이터 조회
-        code = region_code.get(region, "")
-        params = {
-            "service": API_KEY,
-            "stdate": today,
-            "eddate": today,
-            "cpage": 1,
-            "rows": 50,
-            "signgucode": code,
-            "prfstate": "02"  # 공연중인 것만
+        region_code = {
+            "서울": "11", "경기": "41", "인천": "28", "대전": "30",
+            "충남": "44", "충북": "43", "경북": "47", "전북": "45",
+            "부산": "26", "경남": "48", "세종": "36", "강원": "51"
         }
-        response = requests.get(KOPIS_URL, params=params)
-        root = ET.fromstring(response.content)
 
-        performances = []
-        for db in root.findall("db"):
-            performances.append({
-                "prfnm":     db.findtext("prfnm") or "",
-                "fcltynm":   db.findtext("fcltynm") or "",
-                "prfpdfrom": db.findtext("prfpdfrom") or "",
-                "prfpdto":   db.findtext("prfpdto") or "",
-                "genrenm":   db.findtext("genrenm") or "",
-                "prfstate":  db.findtext("prfstate") or "",
-            })
+        results = []
 
-        # 4. 이메일 본문 조립
-        subject = f"[더휴식] {region} 공연 일정 안내 ({today})"
-        body = build_email_body(region, performances)
+        if regions:
+            region_list = [r.strip() for r in regions.split(",")]
+            recipients = {k: v for k, v in recipients.items() if k in region_list}
 
-        # 5. 해당 지역 수신자 전체에게 발송
-        for email in email_list:
+        for region, email_list in recipients.items():
+            code = region_code.get(region, "")
+            params = {
+                "service": API_KEY,
+                "stdate": today,
+                "eddate": today,
+                "cpage": 1,
+                "rows": 50,
+                "signgucode": code,
+                "prfstate": "02"
+            }
+            
+            # 🌟 [방어막 2] KOPIS가 이상한 데이터를 줘도 뻗지 않게 막기
             try:
-                send_email(email, subject, body)
-                results.append({"email": email, "status": "success"})
-            except Exception as e:
-                results.append({"email": email, "status": "fail", "error": str(e)})
+                response = requests.get(KOPIS_URL, params=params)
+                root = ET.fromstring(response.content)
+                
+                performances = []
+                for db in root.findall("db"):
+                    performances.append({
+                        "prfnm":     db.findtext("prfnm") or "",
+                        "fcltynm":   db.findtext("fcltynm") or "",
+                        "prfpdfrom": db.findtext("prfpdfrom") or "",
+                        "prfpdto":   db.findtext("prfpdto") or "",
+                        "genrenm":   db.findtext("genrenm") or "",
+                        "prfstate":  db.findtext("prfstate") or "",
+                    })
+            except Exception as kopis_err:
+                print(f"🚨 [{region}] KOPIS 데이터 불러오기 에러: {kopis_err}")
+                performances = []  # 에러나면 빈 리스트로 처리
 
-    return {"status": "done", "results": results}
+            subject = f"[더휴식] {region} 공연 일정 안내 ({today})"
+            body = build_email_body(region, performances)
+
+            for email in email_list:
+                try:
+                    send_email(email, subject, body)
+                    results.append({"email": email, "status": "success"})
+                except Exception as mail_err:
+                    print(f"🚨 메일 발송 에러: {mail_err}")
+                    results.append({"email": email, "status": "fail", "error": str(mail_err)})
+
+        return {"status": "done", "results": results}
+
+    except Exception as total_err:
+        print(f"🚨 서버 전체 치명적 에러: {total_err}")
+        return {"status": "error", "detail": str(total_err)}
 
 # main.py 맨 밑에 추가
 if __name__ == "__main__":
     import uvicorn
     import os
-    # Render가 지정해주는 포트(PORT) 번호를 자동으로 인식하게 합니다.
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
