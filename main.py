@@ -61,26 +61,37 @@ def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, si
         
     return {"status": "success", "total_count": len(data), "data": data}
 
-def load_recipients(filepath="recipients.csv"):
+    def load_recipients():
     """
-    CSV 파일을 읽어서 지역별로 그룹핑된 딕셔너리를 반환합니다.
+    구글 스프레드시트(웹에 게시된 CSV URL)에서 수신자 목록을 읽어옵니다.
     반환 형태: {"서울": ["email1@...", "email2@..."], "경기": [...], ...}
     """
-    recipients = {}  # 빈 딕셔너리 준비
+    recipients = {}
 
-    with open(filepath, encoding="utf-8") as f:
-        reader = csv.DictReader(f)  # 첫 줄을 헤더로 자동 인식
-        for row in reader:
-            region = row["지역"].strip()   # 지역 컬럼
-            email  = row["지점 이메일"].strip()  # 이메일 컬럼
+    # 환경변수에서 구글 시트 CSV URL 불러오기
+    sheet_url = os.environ.get("https://docs.google.com/spreadsheets/d/187lChUbX65LVPOYd5ngC7uk63pBGJFeoiGNSpxtULvE/edit?gid=0#gid=0", "")
+    if not sheet_url:
+        raise ValueError("환경변수 SHEET_CSV_URL이 설정되지 않았습니다.")
 
-            if not region or not email:    # 빈 줄 건너뛰기
-                continue
+    # 구글 시트에서 CSV 데이터 가져오기
+    response = requests.get(sheet_url, timeout=10)
+    response.raise_for_status()  # HTTP 오류 시 예외 발생
 
-            if region not in recipients:
-                recipients[region] = []    # 지역 첫 등장 시 리스트 생성
+    # 텍스트 디코딩 후 DictReader로 파싱
+    decoded = response.content.decode("utf-8")
+    reader  = csv.DictReader(decoded.splitlines())
 
-            recipients[region].append(email)  # 지역에 이메일 추가
+    for row in reader:
+        region = row["지역"].strip()
+        email  = row["지점 이메일"].strip()
+
+        if not region or not email:    # 빈 줄 건너뛰기
+            continue
+
+        if region not in recipients:
+            recipients[region] = []    # 지역 첫 등장 시 리스트 생성
+
+        recipients[region].append(email)
 
     return recipients
 
