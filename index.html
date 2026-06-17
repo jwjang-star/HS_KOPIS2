@@ -1,0 +1,1404 @@
+<head>
+    <meta charset="UTF-8">
+    <title> HSO X KOPIS 대시보드</title> 
+</head>
+<style>
+/* ─────────────────────────────────────────────
+   기본 리셋 & 대시보드 외곽
+───────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+.db{
+  font-family:var(--font-sans);
+  border:0.5px solid var(--color-border-tertiary);
+  border-radius:var(--border-radius-lg);
+  overflow:hidden;
+  background:var(--color-background-primary)
+}
+
+/* ─────────────────────────────────────────────
+   상단 컨트롤 바 (변경 없음)
+───────────────────────────────────────────── */
+.topbar{
+  padding:10px 14px;
+  border-bottom:0.5px solid var(--color-border-tertiary);
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--color-background-primary)
+}
+.logo-wrap{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.logo-icon{width:30px;height:30px;border-radius:7px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;color:#185FA5;font-size:16px}
+.logo-name{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.logo-sub{font-size:10px;color:var(--color-text-tertiary)}
+.vd{width:1px;height:22px;background:var(--color-border-tertiary);flex-shrink:0}
+.ctrl{display:flex;align-items:center;gap:5px}
+.clabel{font-size:11px;color:var(--color-text-tertiary);white-space:nowrap}
+input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);height:30px;cursor:pointer}
+.srv-input{font-size:11px;padding:4px 8px;height:30px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-family:var(--font-mono);width:175px}
+.srv-wrap {
+  display: flex;
+  flex-direction: column;   /* 배지와 입력창을 세로로 쌓기 */
+  gap: 4px;
+  position: relative;
+}
+.srv-badge {
+  cursor: pointer;          /* [변경] 기존: cursor 없음 → pointer 추가 (클릭 가능 표시) */
+  user-select: none;
+}
+.srv-badge:hover {
+  border-color: var(--color-border-secondary);
+}
+/* URL 입력창 슬라이드 영역 */
+.srv-detail {
+  max-height: 0;            /* [변경] 기본: 숨김 (height 대신 max-height 사용 — transition 적용 위해) */
+  overflow: hidden;
+  transition: max-height 0.2s ease;   /* 부드럽게 열림 */
+}
+.srv-detail.open {
+  max-height: 40px;         /* [변경] 열렸을 때 최대 높이 */
+}
+/* 배지 안 꺾쇠 아이콘 회전 */
+.srv-chevron {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+  margin-left: 2px;
+}
+.srv-badge.open .srv-chevron {
+  transform: rotate(180deg);   /* [변경] 열리면 아이콘 뒤집기 */
+}
+.btn-go{display:flex;align-items:center;gap:4px;font-size:12px;padding:0 13px;height:30px;border-radius:var(--border-radius-md);background:#185FA5;color:#E6F1FB;border:none;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn-go:hover{background:#0C447C}
+.btn-go:disabled{opacity:.5;cursor:not-allowed}
+/*메일 버튼*/
+.btn-mail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 0 13px;
+  height: 30px;
+  border-radius: var(--border-radius-md);
+  background: #27500A;
+  color: #EAF3DE;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.btn-mail:hover { background: #3a7010; }  
+.mail-rtag {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 0.5px solid var(--color-border-tertiary);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  background: var(--color-background-primary);
+}
+.mail-rtag:hover { border-color: #378ADD; color: #185FA5; }
+.mail-rtag.on { background: #EAF3DE; color: #27500A; border-color: #C0DD97; }
+.srv-badge{display:flex;align-items:center;gap:4px;font-size:10px;padding:3px 8px;border-radius:20px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);white-space:nowrap}
+.srv-dot{width:6px;height:6px;border-radius:50%;background:#888}
+.srv-dot.ok{background:#639922}
+.srv-dot.err{background:#E24B4A}
+.srv-dot.chk{animation:pulse .8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* ─────────────────────────────────────────────
+   [변경1] 바디 2컬럼 비율 수정
+   기존: grid-template-columns: minmax(0,1fr) 0.5px minmax(0,295px)
+         min-height: 520px
+   변경: 지도 패널 최대폭을 고정(380px)하고, 리스트 패널이 나머지를 채우게 함
+         min-height도 480px로 줄여서 전체 높이 압축
+   이유: 지도가 전체 화면의 70% 이상을 차지해서 오른쪽 리스트와 불균형
+───────────────────────────────────────────── */
+.body{
+  display:grid;
+  grid-template-columns: minmax(0,380px) 0.5px minmax(0,1fr); /* [변경1] 기존: minmax(0,1fr) 0.5px minmax(0,295px) */
+  min-height:460px; /* [변경1] 기존: 520px */
+}
+.col-div{background:var(--color-border-tertiary)}
+
+/* ─────────────────────────────────────────────
+   좌: 지도 패널
+───────────────────────────────────────────── */
+.map-col{display:flex;flex-direction:column;gap:8px;padding:10px}
+
+/* ─────────────────────────────────────────────
+   [변경2] 통계 카드 높이 압축
+   기존: padding:9px 11px / font-size:22px
+   변경: padding:7px 10px / font-size:18px
+   이유: 지도와 stats 카드가 너무 세로를 많이 차지해서 전체 비율이 깨짐
+───────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.scard{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:7px 10px} /* [변경2] 기존: 9px 11px */
+.scard-n{font-size:18px;font-weight:500;color:var(--color-text-primary);line-height:1.1} /* [변경2] 기존: 22px */
+.scard-l{font-size:10px;color:var(--color-text-secondary);margin-top:2px}
+
+/* ─────────────────────────────────────────────
+   [변경3] 지도 박스 높이 제한
+   기존: min-height:300px (최소높이만 있고 최대없음 → 무한정 늘어남)
+   변경: min-height:240px + max-height:320px 추가
+   이유: 지도가 부모 flex 컨테이너를 꽉 채워서 화면을 압도함
+───────────────────────────────────────────── */
+.map-box{
+  background:var(--color-background-secondary);
+  border-radius:var(--border-radius-lg);
+  border:0.5px solid var(--color-border-tertiary);
+  overflow:hidden;
+  flex:1;
+  min-height:240px;
+  max-height:320px;
+  position:relative
+}
+#kmap{width:100%;height:100%;display:block;background:transparent}
+
+/* ─────────────────────────────────────────────
+   SVG 지역 path 스타일 (변경 없음)
+───────────────────────────────────────────── */
+.rpath{stroke:rgba(255,255,255,0.75);stroke-width:0.5;cursor:pointer;transition:fill .12s,stroke .12s,opacity .12s;fill-opacity:1}
+.rpath:hover{stroke-width:1.2;stroke:rgba(255,255,255,0.95);fill-opacity:0.9}
+.rpath.selected{stroke:#042C53;stroke-width:1.2}
+/* 광역시 path는 약간 투명하게 띄워서 도 위에 살며시 얹힌 느낌 */
+.rpath[data-type="metro"]{fill-opacity:0.92;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.18))}
+
+/* ─────────────────────────────────────────────
+   [변경4] 라벨 폰트 크기 조정
+   기존: .rlabel { font-size:8px } / .rlabel.metro { font-size:7px }
+   변경: 둘 다 7.5px로 통일 + font-weight:400 (얇게 해서 겹쳐도 덜 답답하게)
+   이유: 광역시 라벨이 작아서 안보이고, 도(道) 라벨은 너무 커서 경계에 걸림
+───────────────────────────────────────────── */
+.rlabel{
+  font-size:20px;
+  fill:#2d5a0e;
+  pointer-events:none;
+  font-family:var(--font-sans);
+  font-weight:600;
+  letter-spacing:-0.3px;
+  paint-order: stroke fill;
+  stroke: rgba(255,255,255,0.82);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
+.rlabel.metro{
+  font-size:13px;
+  fill:#04342C;
+  font-weight:600;
+  stroke: rgba(255,255,255,0.85);
+  stroke-width: 3.5px;
+}
+.rlabel.selected{fill:#042C53}
+
+/* 광역시 dot 스타일 */
+.metro-dot{
+  transition: r 0.12s, fill 0.12s;
+}
+.metro-dot.selected{
+  stroke:#042C53 !important;
+}
+.metro-ring{
+  transition: opacity 0.12s;
+}
+
+
+.legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding: 2px 4px;
+  margin-top: 0;
+}
+
+/* .leg, .leg-dot — 변경 없음 */
+.leg { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--color-text-secondary); }
+.leg-dot { width:9px; height:9px; border-radius:2px; }
+
+/* ─────────────────────────────────────────────
+   우: 리스트 패널 (변경 없음)
+───────────────────────────────────────────── */
+.list-col{display:flex;flex-direction:column;overflow:hidden}
+.lhead{padding:10px 13px 8px;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ltitle{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.lcnt{font-size:11px;padding:2px 8px;border-radius:20px;background:#E6F1FB;color:#0C447C}
+.rtabs {
+  display: flex;
+  flex-wrap: wrap;              /* [변경] 기존: 없음 (nowrap 기본값) → wrap으로 줄바꿈 허용 */
+  gap: 4px;
+  padding: 7px 10px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  flex-shrink: 0;}
+.rtabs::-webkit-scrollbar{display:none}
+.rtab{font-size:10px;padding:3px 8px;border-radius:20px;border:0.5px solid var(--color-border-tertiary);cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);white-space:nowrap;flex-shrink:0}
+.rtab:hover{border-color:#378ADD;color:#185FA5}
+.rtab.on{background:#E6F1FB;color:#185FA5;border-color:#B5D4F4}
+
+/* ─────────────────────────────────────────────
+   [변경5] 공연 리스트 max-height 비율 조정
+   기존: max-height:370px
+   변경: max-height:360px (전체 높이 줄었으므로 리스트도 함께 조정)
+───────────────────────────────────────────── */
+.plist{overflow-y:auto;flex:1;max-height:360px} /* [변경5] 기존: 370px */
+.pitem{display:flex;gap:9px;padding:8px 12px;cursor:pointer;border-bottom:0.5px solid var(--color-border-tertiary)}
+.pitem:last-child{border-bottom:none}
+.pitem:hover{background:var(--color-background-secondary)}
+.poster{width:36px;height:50px;border-radius:4px;background:#EAF3DE;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.poster img{width:100%;height:100%;object-fit:cover}
+.pinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ptitle{font-size:11px;font-weight:500;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pvenue{font-size:10px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pdate{font-size:10px;color:var(--color-text-tertiary)}
+.ptags{display:flex;gap:3px;margin-top:2px;flex-wrap:wrap}
+.tag{font-size:9px;padding:1px 5px;border-radius:8px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)}
+.tag-on{background:#EAF3DE;color:#27500A;border-color:#C0DD97}
+.tag-pre{background:#E6F1FB;color:#0C447C;border-color:#B5D4F4}
+.tag-end{background:var(--color-background-secondary)}
+.tag-open{background:#FAEEDA;color:#633806;border-color:#FAC775}
+.tag-new{background:#EEF4FF;color:#1D3FAA;border-color:#A5B8F5;font-weight:600;animation:tag-new-glow 1.8s ease-in-out infinite alternate}
+@keyframes tag-new-glow{from{box-shadow:0 0 0px #A5B8F5}to{box-shadow:0 0 7px #4F73E0}}
+.plist-sec{display:flex;align-items:center;gap:7px;padding:9px 12px 6px;font-size:12px;font-weight:600;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
+.plist-sec.new{color:#1D3FAA;background:#F5F8FF}
+.plist-sec .sec-cnt{font-size:10px;font-weight:500;color:var(--color-text-tertiary)}
+.smsg{padding:30px 14px;text-align:center;color:var(--color-text-tertiary);font-size:12px;line-height:2}
+.spin-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:30px;color:var(--color-text-tertiary);font-size:12px}
+.spin{width:18px;height:18px;border:2px solid var(--color-border-tertiary);border-top-color:#185FA5;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.err-banner{padding:7px 12px;font-size:10px;line-height:1.7;border-top:0.5px solid var(--color-border-tertiary);display:none;flex-shrink:0;background:#FCEBEB;color:#A32D2D}
+.urlbox{padding:7px 12px;border-top:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);flex-shrink:0}
+.ulabel{font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px}
+.utext{font-size:9px;color:var(--color-text-secondary);word-break:break-all;line-height:1.5;font-family:var(--font-mono)}
+/* 기타 등등 CSS (변경 없음) */
+.utext {font-size:9px; color:var(--color-text-secondary); word-break:break-all; line-height:1.5; font-family:var(--font-mono)}
+
+/* 페이징 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-top: 0.5px solid var(--color-border-tertiary);
+  flex-shrink: 0;
+  background: var(--color-background-primary);
+}
+.pagination button {
+  padding: 3px 10px;
+  background: var(--color-background-primary);
+  color: #185FA5;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  height: 26px;
+}
+.pagination button:hover:not(:disabled) { background: #E6F1FB; }
+.pagination button:disabled { opacity: 0.35; cursor: not-allowed; }
+#page-info {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  min-width: 48px;
+  text-align: center;
+}
+    
+</style>
+
+<h2 class="sr-only">🌠 HSO X KOPIS 대시보드</h2>
+
+<div class="db">
+  <div class="topbar">
+    <div class="logo-wrap">
+      <div class="logo-icon"><i class="ti ti-ticket" aria-hidden="true"></i></div>
+      <div><div class="logo-name">KOPIS</div><div class="logo-sub">공연예술통합전산망</div></div>
+    </div>
+    <div class="vd"></div>
+    <!-- [변경] 기존: 서버URL input + 배지가 한 줄에 나란히
+     변경: srv-wrap으로 묶어서 배지(항상 표시) + URL입력(접힘/펼침) 구조로 분리 -->
+<div class="ctrl">
+  <span class="clabel"><i class="ti ti-server" aria-hidden="true"></i></span>
+  <div class="srv-wrap">
+
+    <!-- 항상 보이는 상태 배지 — 클릭하면 URL 입력창 토글 -->
+    <div class="srv-badge" id="srv-badge" onclick="toggleSrvDetail()" title="클릭하여 서버 주소 변경">
+      <div class="srv-dot chk" id="srv-dot"></div>
+      <span id="srv-txt">확인 중...</span>
+      <i class="ti ti-chevron-down srv-chevron" id="srv-chevron" aria-hidden="true"></i>
+    </div>
+
+    <!-- [변경] URL 입력창: 기본 숨김, 배지 클릭 시 펼쳐짐 -->
+    <div class="srv-detail" id="srv-detail">
+  <input class="srv-input" id="srv-url"
+    value="https://hs-kopis.onrender.com" 
+    placeholder="http://localhost:8000"
+    style="width:175px;">
+</div>
+
+  </div>
+</div>
+
+<div class="vd"></div>
+
+<!-- 기간 선택 (변경 없음) -->
+<div class="ctrl">
+  <span class="clabel">기간</span>
+  <input type="date" id="st" value="">
+  <span class="clabel">~</span>
+  <input type="date" id="ed" value="">
+</div>
+
+<div class="vd"></div>
+
+<!-- 장르 + 상태 + 조회버튼 (변경 없음) -->
+<select id="sel-genre">
+  <option value="">전체 장르</option>
+  <option value="AAAA">연극</option>
+  <option value="GGGA">뮤지컬</option>
+  <option value="CCCA">서양음악(클래식)</option>
+  <option value="CCCC">한국음악(국악)</option>
+  <option value="CCCD" selected>대중음악</option>
+  <option value="BBBC">무용(서양/한국무용)</option>
+  <option value="BBBE">대중무용</option>
+  <option value="EEEB">서커스/마술</option>
+  <option value="EEEA">복합</option>
+</select>
+<select id="sel-state">
+  <option value="">전체 상태</option>
+  <option value="01"selected>공연예정</option>
+  <option value="02">공연중</option>
+  <option value="03">공연완료</option>
+</select>
+<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary);cursor:pointer;user-select:none;white-space:nowrap;">
+  <input type="checkbox" id="chk-only-new" onchange="renderList()" style="width:15px;height:15px;cursor:pointer;">🆕 신규만
+</label>
+<button class="btn-go" id="btn-go" onclick="doSearch()">
+  <i class="ti ti-search" aria-hidden="true" style="font-size:13px"></i>조회
+</button>
+<button class="btn-mail" id="btn-send">
+  <i class="ti ti-mail" style="font-size:13px" aria-hidden="true"></i>선택 발송
+</button>    
+  </div>
+<!-- 이메일 발송 모달 -->
+<div id="mail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#ffffff;border-radius:var(--border-radius-lg);border:0.5px solid #e0e0e0;width:360px;overflow:hidden;">
+    
+    <!-- 모달 헤더 -->
+    <div style="padding:12px 16px;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:13px;font-weight:500;color:var(--color-text-primary);">
+        <i class="ti ti-mail" style="margin-right:5px;"></i>이메일 발송
+      </span>
+      <span onclick="closeMailModal()" style="cursor:pointer;font-size:16px;color:var(--color-text-tertiary);">✕</span>
+    </div>
+
+    <!-- 지역 선택 -->
+    <div style="padding:14px 16px;border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px;">발송 지역 선택</div>
+      <div id="mail-region-list" style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span class="mail-rtag on" data-r="전체" onclick="toggleMailRegion(this)">전체</span>
+        <span class="mail-rtag" data-r="서울" onclick="toggleMailRegion(this)">서울</span>
+        <span class="mail-rtag" data-r="경기" onclick="toggleMailRegion(this)">경기</span>
+        <span class="mail-rtag" data-r="인천" onclick="toggleMailRegion(this)">인천</span>
+        <span class="mail-rtag" data-r="대전" onclick="toggleMailRegion(this)">대전</span>
+        <span class="mail-rtag" data-r="충남" onclick="toggleMailRegion(this)">충남</span>
+        <span class="mail-rtag" data-r="충북" onclick="toggleMailRegion(this)">충북</span>
+        <span class="mail-rtag" data-r="경북" onclick="toggleMailRegion(this)">경북</span>
+        <span class="mail-rtag" data-r="전북" onclick="toggleMailRegion(this)">전북</span>
+        <span class="mail-rtag" data-r="부산" onclick="toggleMailRegion(this)">부산</span>
+        <span class="mail-rtag" data-r="경남" onclick="toggleMailRegion(this)">경남</span>
+        <span class="mail-rtag" data-r="세종" onclick="toggleMailRegion(this)">세종</span>
+        <span class="mail-rtag" data-r="강원" onclick="toggleMailRegion(this)">강원</span>
+        <span class="mail-rtag" data-r="경남진주" onclick="toggleMailRegion(this)">경남(진주)</span>
+      </div>
+    </div>
+
+    <!-- 선택된 지역 표시 -->
+    <div style="padding:10px 16px;border-bottom:0.5px solid var(--color-border-tertiary);min-height:38px;">
+      <div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:4px;">발송 대상</div>
+      <div id="mail-selected-display" style="font-size:11px;color:var(--color-text-primary);">전체 지역</div>
+    </div>
+
+    <!-- 발송 버튼 -->
+    <div style="padding:12px 16px;display:flex;justify-content:flex-end;gap:8px;">
+      <button onclick="closeMailModal()" style="font-size:12px;padding:0 14px;height:30px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:#ffffff;color:var(--color-text-secondary);cursor:pointer;">취소</button>
+      <button id="btn-send-mail" onclick="sendMail()" style="font-size:12px;padding:0 14px;height:30px;border-radius:var(--border-radius-md);background:#27500A;color:#EAF3DE;border:none;cursor:pointer;font-weight:500;">발송하기</button>
+    </div>
+
+    <!-- 발송 결과 -->
+    <div id="mail-result" style="display:none;padding:10px 16px;border-top:0.5px solid var(--color-border-tertiary);font-size:11px;line-height:1.7;color:var(--color-text-secondary);"></div>
+  </div>
+</div>
+
+  <div class="body">
+    <div class="map-col">
+      <div class="stats">
+        <div class="scard"><div class="scard-n" id="s-total">–</div><div class="scard-l">조회 건수</div></div>
+        <div class="scard"><div class="scard-n" id="s-region">전체</div><div class="scard-l">선택 지역</div></div>
+        <div class="scard"><div class="scard-n" id="s-genre">전체</div><div class="scard-l">선택 장르</div></div>
+      </div>
+
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#378ADD"></div>선택됨</div>
+        <div class="leg"><div class="leg-dot" style="background:#97C459"></div>도(道)</div>
+        <div class="leg"><div class="leg-dot" style="background:#5DCAA5"></div>광역시</div>
+      </div>
+
+      <div class="map-box">
+        <!--
+          [변경6] SVG viewBox 미세 조정
+          기존: viewBox="144 18 480 550"
+          변경: viewBox="144 18 480 560"
+          이유: 제주도가 하단에서 잘리는 현상 방지 (높이를 10 늘림)
+          → viewBox="minX minY width height" 형식
+             minX/minY: 보이기 시작하는 좌표, width/height: 보이는 영역 크기
+        -->
+        <svg id="kmap" viewBox="144 18 480 560"
+          xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label="대한민국 시도 지도. 클릭하여 지역별 공연 필터링.">
+          <title>대한민국 시도별 공연 필터 지도</title>
+        </svg>
+        
+      </div>
+    </div>
+
+ 
+
+    <div class="col-div"></div>
+
+    <div class="list-col">
+      <div class="lhead">
+        <span class="ltitle" id="ltitle">공연 목록</span>
+        <span class="lcnt" id="lcnt">0건</span>
+      </div>
+      <div class="rtabs">
+        <span class="rtab on" data-c="" data-n="전체" onclick="pickRegion(this)">전체</span>
+        <span class="rtab" data-c="11" data-n="서울" onclick="pickRegion(this)">서울</span>
+        <span class="rtab" data-c="28" data-n="인천" onclick="pickRegion(this)">인천</span>
+        <span class="rtab" data-c="41" data-n="경기" onclick="pickRegion(this)">경기</span>
+        <span class="rtab" data-c="51" data-n="강원" onclick="pickRegion(this)">강원</span>
+        <span class="rtab" data-c="43" data-n="충북" onclick="pickRegion(this)">충북</span>
+        <span class="rtab" data-c="44" data-n="충남" onclick="pickRegion(this)">충남</span>
+        <span class="rtab" data-c="30" data-n="대전" onclick="pickRegion(this)">대전</span>
+        <span class="rtab" data-c="36" data-n="세종" onclick="pickRegion(this)">세종</span>
+        <span class="rtab" data-c="47" data-n="경북" onclick="pickRegion(this)">경북</span>
+        <span class="rtab" data-c="27" data-n="대구" onclick="pickRegion(this)">대구</span>
+        <span class="rtab" data-c="48" data-n="경남" onclick="pickRegion(this)">경남</span>
+        <span class="rtab" data-c="26" data-n="부산" onclick="pickRegion(this)">부산</span>
+        <span class="rtab" data-c="31" data-n="울산" onclick="pickRegion(this)">울산</span>
+        <span class="rtab" data-c="45" data-n="전북" onclick="pickRegion(this)">전북</span>
+        <span class="rtab" data-c="46" data-n="전남" onclick="pickRegion(this)">전남</span>
+        <span class="rtab" data-c="29" data-n="광주" onclick="pickRegion(this)">광주</span>
+        <span class="rtab" data-c="50" data-n="제주" onclick="pickRegion(this)">제주</span>
+      </div>
+
+      <div style="display:flex;align-items:center;padding:8px 13px;border-bottom:0.5px solid var(--color-border-tertiary);">
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary);cursor:pointer;user-select:none;white-space:nowrap;">
+          <input type="checkbox" id="chk-select-all" onchange="toggleSelectAll(this)" style="width:15px;height:15px;cursor:pointer;">전체 선택
+        </label>
+      </div>
+
+      <div class="plist" id="plist">
+        <div class="smsg">
+          <i class="ti ti-loader" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>
+          서버 연결 확인 중...
+        </div>
+      </div>
+
+      <div class="pagination" id="pagination-wrap" style="display: none;">
+        <button id="btn-prev" onclick="movePage(-1)"><i class="ti ti-chevron-left"></i> 이전</button>
+        <span id="page-info">1 / 1 페이지</span>
+        <button id="btn-next" onclick="movePage(1)">다음 <i class="ti ti-chevron-right"></i></button>
+      </div>
+        
+      <div class="err-banner" id="err-banner"></div>
+      
+      <div class="urlbox" style="display: none;">
+        <div class="ulabel"><i class="ti ti-link" aria-hidden="true"></i> FastAPI 요청 URL</div>
+        <div class="utext" id="utext">–</div>
+      </div>
+      
+    </div> </div>
+
+<script>
+/* ══════════════════════════════════════════════
+   공통코드 상수 (KOPIS OPEN API 기준 — 변경 없음)
+══════════════════════════════════════════════ */
+const API_KEY  = '1c235bf039644a5da499d3dfab103750';
+
+// signgucode — 공통코드 8번
+const REGION_LABEL = {
+  '':'전체','11':'서울','26':'부산','27':'대구','28':'인천',
+  '29':'광주','30':'대전','31':'울산','36':'세종','41':'경기',
+  '51':'강원','43':'충북','44':'충남','45':'전북','46':'전남',
+  '47':'경북','48':'경남','50':'제주'
+};
+// shcate — 공통코드 2번
+const GENRE_LABEL = {
+  '':'전체','AAAA':'연극','GGGA':'뮤지컬','CCCA':'클래식',
+  'CCCC':'국악','CCCD':'대중음악','BBBC':'무용','BBBE':'대중무용',
+  'EEEB':'서커스','EEEA':'복합'
+};
+// prfstate — 공통코드 1번
+const STATE_CLASS = {
+  '공연중':'tag-on','공연예정':'tag-pre','공연완료':'tag-end'
+};
+
+/* ══════════════════════════════════════════════
+   SVG 지도 path 데이터
+   (pdftocairo 추출 → matrix transform 적용 → RDP 단순화)
+
+   [변경7-A] 경북(47) path에서 부산 서브패스 제거
+   원인: PDF 추출 시 경북 path 안에
+         "M 478.8 310.9 ... Z" 라는 서브패스가 포함되어 있었음
+         이 좌표가 실제 부산 위치이기도 해서 부산 위에 경북이 겹쳐 그려졌음
+   수정: 경북 d값에서 해당 서브패스(M 478.8 310.9 ~ Z) 를 삭제
+
+   [변경7-B] 부산(26) path — 별도 처리 불필요
+   부산의 d값 자체(M 478.8 310.9...)는 올바른 위치임
+   단지 경북이 그 위에 같은 영역을 덮어 그려서 파란색이 안 보였던 것
+   → 경북 path에서 해당 서브패스만 제거하면 해결됨
+══════════════════════════════════════════════ */
+const REAL_MAP_PATHS = [
+  // ── 도(道) ──────────────────────────────────
+  {code:'51', name:'강원', type:'do',
+    d:'M 448.4 30.0 L 470.8 80.9 L 493.6 114.3 L 504.9 126.8 L 508.5 135.1 L 526.5 167.1 L 534.8 189.5 L 533.1 193.8 L 538.0 222.7 L 533.9 234.2 L 527.8 234.7 L 522.2 232.6 L 522.9 213.8 L 513.3 211.6 L 507.7 203.8 L 507.9 198.1 L 515.0 195.9 L 504.7 193.2 L 490.1 193.0 L 480.2 189.1 L 480.0 196.0 L 460.0 188.1 L 452.9 189.2 L 442.2 185.5 L 444.9 177.9 L 434.3 175.1 L 417.8 173.6 L 412.2 176.8 L 412.6 181.8 L 409.8 184.1 L 403.5 183.7 L 387.1 182.4 L 400.0 154.9 L 405.2 144.2 L 381.6 134.4 L 381.5 115.4 L 382.5 99.3 L 373.9 87.4 L 361.9 85.5 L 354.1 79.8 L 352.2 86.5 L 344.6 81.8 L 335.2 72.3 L 350.7 62.6 L 398.9 60.8 L 427.6 61.0 L 441.1 35.5 Z'},
+
+  {code:'41', name:'경기', type:'do',
+    d:'M 311.1 111.7 L 310.9 100.5 L 318.7 96.2 L 335.2 72.3 L 352.2 86.5 L 356.8 83.3 L 373.9 87.4 L 388.6 106.2 L 387.2 111.8 L 381.5 115.4 L 381.6 134.4 L 405.2 144.2 L 386.5 183.4 L 368.7 204.2 L 359.0 207.8 L 334.9 205.2 L 329.1 185.9 L 318.1 190.7 L 318.9 183.8 L 312.5 182.5 L 310.3 169.9 L 312.9 162.0 L 321.4 150.8 L 313.7 139.8 L 300.3 117.8 L 310.6 118.8 L 312.3 110.8 Z'},
+
+  {code:'44', name:'충남', type:'do',
+    d:'M 295.4 221.1 L 284.8 221.8 L 271.4 228.5 L 267.8 225.4 L 272.6 207.1 L 282.1 199.0 L 291.0 203.5 L 299.1 190.0 L 307.7 196.0 L 321.5 200.1 L 325.9 220.4 L 334.9 205.2 L 359.0 207.8 L 364.4 223.5 L 357.9 231.2 L 346.4 226.7 L 342.8 250.3 L 361.5 259.9 L 374.3 266.8 L 375.6 275.5 L 383.1 277.3 L 388.0 292.9 L 372.9 297.1 L 362.7 283.8 L 347.2 290.3 L 326.4 286.6 L 322.8 291.1 L 299.2 298.8 L 281.4 297.4 L 278.0 279.6 L 270.9 261.5 L 274.3 251.5 L 282.2 246.0 L 294.8 237.0 Z'},
+
+  {code:'43', name:'충북', type:'do',
+    d:'M 387.1 182.4 L 409.8 184.1 L 412.2 176.8 L 417.8 173.6 L 444.9 177.9 L 452.9 189.2 L 471.4 193.4 L 456.4 204.7 L 446.5 219.7 L 435.2 218.2 L 420.9 224.1 L 414.8 226.1 L 401.8 239.4 L 409.8 247.9 L 407.5 251.7 L 405.2 266.7 L 416.0 280.7 L 416.3 286.4 L 412.2 300.7 L 406.9 297.1 L 398.9 298.3 L 388.0 292.9 L 383.1 277.3 L 375.6 275.5 L 374.3 266.8 L 381.5 256.9 L 368.0 253.3 L 366.3 248.8 L 342.8 250.3 L 346.4 226.7 L 357.9 231.2 L 364.4 223.5 L 359.0 207.8 L 368.7 204.2 L 386.5 183.4 Z'},
+
+  /* [변경7-A] 경북 path 수정
+     기존 d값에 포함된 두 번째 서브패스:
+       "M 478.8 310.9 L 480.5 308.0 ... L 478.2 310.7 Z"
+     → 이 좌표 범위(x:457~480, y:295~319)가 부산과 완전히 겹침
+     → 경북이 나중에 그려지면서 부산을 덮어버렸던 원인
+     수정: 해당 서브패스 전체 삭제 (메인 서브패스만 유지)
+  */
+  {code:'47', name:'경북', type:'do',
+    d:'M 533.9 234.2 L 535.4 255.1 L 531.4 261.6 L 534.5 286.1 L 536.4 296.5 L 544.6 287.6 L 547.2 294.1 L 540.0 320.9 L 535.6 332.0 L 536.9 334.5 L 530.4 332.9 L 521.5 333.9 L 513.9 327.4 L 505.0 331.1 L 500.4 337.6 L 492.6 336.4 L 479.7 342.4 L 466.0 339.5 L 452.9 337.6 L 436.6 334.3 L 428.9 316.3 L 416.7 313.3 L 412.2 300.7 L 416.3 286.4 L 416.0 280.7 L 418.8 272.9 L 405.2 266.7 L 407.5 251.7 L 409.8 247.9 L 401.8 239.4 L 414.8 226.1 L 423.6 228.4 L 420.9 224.1 L 435.2 218.2 L 446.5 219.7 L 456.4 204.7 L 471.4 193.4 L 480.0 196.0 L 490.1 193.0 L 507.9 198.1 L 513.3 211.6 L 522.9 213.8 L 522.2 232.6 L 527.8 234.7 Z'},
+    /* 기존 코드 (삭제된 서브패스 참고용):
+       M 478.8 310.9 L 480.5 308.0 L 479.2 299.0 L 465.5 295.9
+       L 461.7 299.0 L 460.9 309.3 L 457.3 311.1 L 464.3 318.9
+       L 467.2 315.4 L 474.5 316.9 L 478.2 310.7 Z   ← 이 부분 삭제
+    */
+
+  {code:'45', name:'전북', type:'do',
+    d:'M 324.8 306.4 L 299.2 298.8 L 281.4 297.4 L 299.6 301.8 L 306.3 302.7 L 313.9 310.9 L 316.4 316.4 L 320.3 319.6 L 308.0 318.1 L 305.1 341.2 L 311.3 336.6 L 316.0 309.2 L 324.8 306.4 Z M 277.9 338.4 L 292.4 358.2 L 304.3 356.1 L 305.2 365.7 L 317.8 361.3 L 321.1 352.3 L 327.2 349.2 L 336.3 357.0 L 343.3 352.4 L 348.2 366.7 L 372.8 366.1 L 378.1 361.9 L 387.9 367.5 L 394.1 353.9 L 388.8 343.2 L 395.1 322.2 L 411.9 307.1 L 412.2 300.7 L 406.9 297.1 L 398.9 298.3 L 388.0 292.9 L 372.9 297.1 L 362.7 283.8 L 347.2 290.3 L 326.4 286.6 L 322.8 291.1 L 299.2 298.8 L 294.9 331.6 L 305.4 324.2 L 310.6 316.4 L 321.0 316.6 L 320.3 319.6 Z'},
+
+  {code:'46', name:'전남', type:'do',
+    d:'M 403.1 398.9 L 390.3 379.4 L 387.9 367.5 L 372.8 366.1 L 348.2 366.7 L 343.3 352.4 L 336.3 357.0 L 327.2 349.2 L 317.8 361.3 L 305.2 365.7 L 292.4 358.2 L 287.6 369.9 L 286.5 371.2 L 287.1 377.7 L 277.6 382.6 L 283.0 386.5 L 285.3 397.4 L 281.4 397.4 L 289.2 399.5 L 291.4 405.5 L 296.5 413.0 L 301.1 414.8 L 303.0 404.4 L 310.9 413.6 L 303.6 412.2 L 300.3 419.7 L 286.5 419.4 L 298.2 422.4 L 307.5 431.0 L 294.6 435.5 L 287.0 433.1 L 280.9 435.0 L 295.1 444.1 L 300.9 442.4 L 300.7 437.6 L 316.5 442.3 L 322.6 448.5 L 329.7 451.8 L 338.8 432.7 L 354.1 425.0 L 357.4 427.0 L 363.4 428.9 L 373.5 439.8 L 389.8 432.2 L 397.5 431.5 L 402.5 435.9 L 397.9 421.7 L 402.9 398.5 Z'},
+
+  {code:'48', name:'경남', type:'do',
+    d:'M 496.7 381.6 L 482.9 386.6 L 475.2 380.6 L 468.8 380.6 L 460.2 384.5 L 450.3 389.9 L 453.9 405.5 L 445.2 405.6 L 435.6 405.5 L 423.3 401.4 L 415.1 396.8 L 411.7 398.5 L 405.1 400.2 L 391.4 381.3 L 387.5 369.6 L 394.1 353.9 L 388.8 343.2 L 395.1 322.2 L 411.9 307.1 L 430.4 318.0 L 436.4 325.1 L 452.9 337.6 L 466.0 339.5 L 479.7 342.4 L 492.6 336.4 L 500.4 337.6 L 504.9 348.8 L 521.5 363.6 L 515.8 378.6 L 500.6 371.3 L 497.4 380.4 Z'},
+
+  {code:'50', name:'제주', type:'do',
+    d:'M 333.6 543.0 L 327.7 553.1 L 302.8 566.6 L 284.0 566.1 L 270.9 563.1 L 271.5 556.1 L 282.2 544.3 L 309.5 535.7 L 323.7 535.1 L 330.9 540.2 Z'},
+
+  // ── 광역시·특별시·세종 ──────────────────────────
+  {code:'11', name:'서울', type:'metro',
+    d:'M 347.3 139.9 L 353.1 139.2 L 349.6 149.3 L 342.9 152.3 L 335.0 152.3 L 325.2 147.3 L 321.3 139.8 L 327.3 138.9 L 335.2 133.5 L 342.3 126.4 L 346.6 129.0 Z'},
+
+  {code:'28', name:'인천', type:'metro',
+    d:'M 302.6 143.6 L 292.9 153.1 L 286.6 150.9 L 295.4 145.1 Z M 315.3 157.5 L 308.9 158.8 L 305.3 151.2 L 309.2 144.6 L 305.9 140.0 L 313.7 139.8 L 318.5 144.3 L 321.4 150.8 Z'},
+
+  {code:'36', name:'세종', type:'metro',
+    d:'M 355.7 250.3 L 366.5 248.0 L 368.0 253.3 L 375.1 252.3 L 374.3 266.8 L 363.6 272.6 L 360.0 257.0 Z'},
+
+  {code:'30', name:'대전', type:'metro',
+    d:'M 357.9 231.2 L 355.1 242.3 L 367.2 241.5 L 366.5 248.0 L 355.7 250.3 L 342.8 250.3 L 344.5 231.9 L 346.4 226.7 Z'},
+
+  {code:'29', name:'광주', type:'metro',
+    d:'M 336.8 371.2 L 338.4 375.7 L 335.2 380.0 L 323.6 371.7 L 332.6 369.7 Z'},
+
+  {code:'27', name:'대구', type:'metro',
+    d:'M 536.9 334.5 L 528.7 350.2 L 523.4 363.6 L 516.5 358.1 L 504.9 348.8 L 499.9 348.0 L 500.4 337.6 L 505.7 334.8 L 513.9 327.4 L 521.5 333.9 L 530.4 332.9 Z'},
+
+  {code:'31', name:'울산', type:'metro',
+    d:'M 515.8 378.6 L 509.4 380.0 L 504.9 382.8 L 501.5 388.8 L 496.4 389.8 L 496.7 381.6 L 500.6 371.3 L 508.8 369.1 Z'},
+
+  /* [변경7-B] 부산 path — d값 자체는 변경 없음
+     부산이 경북처럼 보였던 원인은 부산 d값이 틀린 게 아니라
+     경북 path에 같은 영역의 서브패스가 포함되어 경북 색(초록)으로 덮혔던 것
+     경북에서 해당 서브패스를 제거([변경7-A])하면 이 부산 path가 정상 표시됨
+  */
+  {code:'26', name:'부산', type:'metro',
+    d:'M 478.8 310.9 L 474.5 316.9 L 467.2 315.4 L 464.3 318.9 L 457.3 311.1 L 460.9 309.3 L 461.7 299.0 L 465.5 295.9 L 474.9 294.9 L 479.2 299.0 Z'},
+];
+
+/* ══════════════════════════════════════════════
+   지도 색상
+══════════════════════════════════════════════ */
+const FILL_DO    = '#97C459';
+const FILL_METRO = '#5DCAA5';
+const FILL_SEL   = '#378ADD';
+const FILL_HOVER = '#B5D4F4';
+
+// 광역시 도트 색상
+const DOT_METRO  = '#5DCAA5';
+const DOT_SEL    = '#378ADD';
+
+function getFill(code){
+  if(code === selCode) return FILL_SEL;
+  const r = REAL_MAP_PATHS.find(r=>r.code===code);
+  return r?.type==='metro' ? FILL_METRO : FILL_DO;
+}
+
+let selCode = '';
+
+/* ══════════════════════════════════════════════
+   라벨 위치 — SVG 좌표 직접 지정
+   viewBox="144 18 480 560"
+   
+   ※ 광역시는 path 위에 점(원)으로 표시하고 라벨은 옆에 붙임
+   ※ 도(道)는 영역 중앙에 크게 표시
+══════════════════════════════════════════════ */
+const LABEL_POS = {
+  // ── 도(道) ──
+  '51': {x:490, y:120},  // 강원: 동쪽 넓은 영역 중앙
+  '41': {x:333, y:165},  // 경기: 서울 남쪽 중심
+  '44': {x:294, y:255},  // 충남: 중서부
+  '43': {x:432, y:245},  // 충북: 중부
+  '47': {x:474, y:268},  // 경북: bbox 중심
+  '45': {x:350, y:340},  // 전북: 중서부
+  '46': {x:310, y:415},  // 전남: 육지 중심
+  '48': {x:450, y:370},  // 경남: 중심부 (울산·부산 점 피해)
+  '50': {x:302, y:551},  // 제주: 섬 중심 (원래 위치 유지, SVG내 위치)
+
+  // ── 광역시 (점 위치 = 실제 path 중심, 라벨은 별도로 dot 옆에 렌더) ──
+  '11': {x:337, y:140},  // 서울: path 중심
+  '28': {x:313, y:149},  // 인천: 본토 path 중심 (섬 제외)
+  '30': {x:352, y:240},  // 대전
+  '36': {x:368, y:260},  // 세종
+  '29': {x:330, y:374},  // 광주
+  '26': {x:506, y:380},  // 부산
+  '27': {x:468, y:307},  // 대구
+  '31': {x:518, y:346},  // 울산
+};
+
+// 광역시 라벨 텍스트를 dot 기준 어느 방향에 붙일지
+const METRO_LABEL_DIR = {
+  '11': 'right',  // 서울
+  '28': 'left',   // 인천
+  '30': 'left',   // 대전
+  '36': 'right',  // 세종
+  '29': 'left',   // 광주
+  '26': 'right',  // 부산
+  '27': 'right',  // 대구
+  '31': 'left',   // 울산
+};
+
+/* ══════════════════════════════════════════════
+   SVG 지도 빌드 함수
+══════════════════════════════════════════════ */
+function buildMap(){
+  const svg = document.getElementById('kmap');
+  svg.innerHTML = '';
+
+  // SVG defs: 광역시 dot 그림자 필터
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = `
+    <filter id="dot-shadow" x="-80%" y="-80%" width="260%" height="260%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="rgba(0,0,0,0.28)" flood-opacity="1"/>
+    </filter>
+    <filter id="lbl-shadow" x="-10%" y="-30%" width="120%" height="160%">
+      <feFlood flood-color="rgba(255,255,255,0.85)" result="bg"/>
+      <feMerge><feMergeNode in="bg"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  `;
+  svg.appendChild(defs);
+
+  // ── 1단계: 도(道) path 그리기 (광역시 path는 여기서 건너뜀) ──
+  // 제주는 별도 처리 (우측 상단에 inset으로 배치)
+  const doRegions = REAL_MAP_PATHS.filter(r => r.type === 'do' && r.code !== '50');
+  doRegions.forEach(r => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', r.d);
+    path.setAttribute('fill', getFill(r.code));
+    path.setAttribute('class','rpath'+(r.code===selCode?' selected':''));
+    path.setAttribute('data-code', r.code);
+    path.setAttribute('data-type', r.type);
+    path.setAttribute('role','button');
+    path.setAttribute('aria-label',`${r.name} 선택`);
+
+    path.addEventListener('mouseenter', function(){
+      if(r.code !== selCode) this.setAttribute('fill', FILL_HOVER);
+      const tt = document.getElementById('mtt');
+      // tooltip removed
+      // tooltip removed
+    });
+    path.addEventListener('mouseleave', function(){
+      if(r.code !== selCode) this.setAttribute('fill', getFill(r.code));
+      // tooltip removed
+    });
+    path.addEventListener('click', function(){
+      selCode = (selCode === r.code) ? '' : r.code;
+      currentPage = 1; totalCount = 0;
+      refreshMap(); syncTabs(); doSearch();
+    });
+
+    // 도(道) 라벨 — 영역 중앙에 크게
+    const pos = LABEL_POS[r.code] || getCenter(r.d);
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x', pos.x);
+    lbl.setAttribute('y', pos.y);
+    lbl.setAttribute('text-anchor','middle');
+    lbl.setAttribute('dominant-baseline','middle');
+    lbl.setAttribute('class','rlabel'+(r.code===selCode?' selected':''));
+    lbl.setAttribute('pointer-events','none');
+    lbl.textContent = r.name;
+
+    g.appendChild(path);
+    g.appendChild(lbl);
+    svg.appendChild(g);
+  });
+
+  // ── 1.5단계: 제주 — 경남 바로 아래 padding=50 위치에 렌더링 ──
+  // 경남 하단 y=405.6, padding=50 → 제주 중심 목표 y=455.6
+  // font-size: scale 밖에서 절대 13px로 별도 렌더
+  {
+    const r50 = REAL_MAP_PATHS.find(r => r.code === '50');
+    if(r50){
+      // ── path는 scale 그룹 안에 ──
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      const origCx = 302.2, origCy = 550.9;
+      const targetX = 454.5, targetY = 455.6;  // 경남 하단+50
+      const sc = 1.5;
+      const tx = targetX - origCx * sc;
+      const ty = targetY - origCy * sc;
+      g.setAttribute('transform', `translate(${tx.toFixed(1)},${ty.toFixed(1)}) scale(${sc})`);
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', r50.d);
+      path.setAttribute('fill', getFill('50'));
+      path.setAttribute('class','rpath'+(selCode==='50'?' selected':''));
+      path.setAttribute('data-code','50');
+      path.setAttribute('data-type','do');
+      path.setAttribute('role','button');
+      path.setAttribute('aria-label','제주 선택');
+
+      path.addEventListener('mouseenter', function(){
+        if('50' !== selCode) this.setAttribute('fill', FILL_HOVER);
+        const tt = document.getElementById('mtt');
+        // tooltip removed
+        // tooltip removed
+      });
+      path.addEventListener('mouseleave', function(){
+        if('50' !== selCode) this.setAttribute('fill', getFill('50'));
+        // tooltip removed
+      });
+      path.addEventListener('click', function(){
+        selCode = (selCode === '50') ? '' : '50';
+        currentPage = 1; totalCount = 0;
+        refreshMap(); syncTabs(); doSearch();
+      });
+
+      g.appendChild(path);
+      svg.appendChild(g);
+
+      // ── 라벨은 scale 밖에서 절대 좌표(targetX, targetY)에 13px로 ──
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      lbl.setAttribute('x', targetX);
+      lbl.setAttribute('y', targetY);
+      lbl.setAttribute('text-anchor','middle');
+      lbl.setAttribute('dominant-baseline','middle');
+      lbl.setAttribute('class','rlabel'+(selCode==='50'?' selected':''));
+      lbl.setAttribute('pointer-events','none');
+      lbl.setAttribute('font-size','13');
+      lbl.textContent = '제주';
+      svg.appendChild(lbl);
+    }
+  }
+
+  // ── 2단계: 광역시 — 도 위에 점(원)으로 플로팅 표시 ──
+  const metroRegions = REAL_MAP_PATHS.filter(r => r.type === 'metro');
+  metroRegions.forEach(r => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('data-metro-code', r.code);
+    g.setAttribute('style','cursor:pointer');
+
+    const pos = LABEL_POS[r.code] || getCenter(r.d);
+    const isSelected = r.code === selCode;
+    const dotColor = isSelected ? DOT_SEL : DOT_METRO;
+    const dotR = isSelected ? 6 : 5;
+
+    // 외곽 링 (강조용)
+    const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ring.setAttribute('cx', pos.x);
+    ring.setAttribute('cy', pos.y);
+    ring.setAttribute('r', dotR + 3);
+    ring.setAttribute('fill', 'rgba(255,255,255,0.55)');
+    ring.setAttribute('pointer-events','none');
+    ring.setAttribute('class', 'metro-ring');
+
+    // 실제 dot
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx', pos.x);
+    dot.setAttribute('cy', pos.y);
+    dot.setAttribute('r', dotR);
+    dot.setAttribute('fill', dotColor);
+    dot.setAttribute('stroke', '#fff');
+    dot.setAttribute('stroke-width', '1.5');
+    dot.setAttribute('filter', 'url(#dot-shadow)');
+    dot.setAttribute('class', 'metro-dot'+(isSelected?' selected':''));
+    dot.setAttribute('data-code', r.code);
+    dot.setAttribute('data-type', 'metro');
+    dot.setAttribute('role','button');
+    dot.setAttribute('aria-label',`${r.name} 선택`);
+
+    // 라벨 (dot 옆에)
+    const dir = METRO_LABEL_DIR[r.code] || 'right';
+    const offset = 10;
+    const lx = dir === 'right' ? pos.x + offset : pos.x - offset;
+    const anchor = dir === 'right' ? 'start' : 'end';
+
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x', lx);
+    lbl.setAttribute('y', pos.y);
+    lbl.setAttribute('text-anchor', anchor);
+    lbl.setAttribute('dominant-baseline','middle');
+    lbl.setAttribute('class','rlabel metro'+(isSelected?' selected':''));
+    lbl.setAttribute('pointer-events','none');
+    lbl.textContent = r.name;
+
+    // 이벤트는 g 전체에
+    g.addEventListener('mouseenter', function(){
+      dot.setAttribute('fill', isSelected ? DOT_SEL : FILL_HOVER);
+      const tt = document.getElementById('mtt');
+      // tooltip removed
+      // tooltip removed
+    });
+    g.addEventListener('mouseleave', function(){
+      dot.setAttribute('fill', r.code === selCode ? DOT_SEL : DOT_METRO);
+      // tooltip removed
+    });
+    g.addEventListener('click', function(){
+      selCode = (selCode === r.code) ? '' : r.code;
+      currentPage = 1; totalCount = 0;
+      refreshMap(); syncTabs(); doSearch();
+    });
+
+    g.appendChild(ring);
+    g.appendChild(dot);
+    g.appendChild(lbl);
+    svg.appendChild(g);
+  });
+
+  // ── 3단계 끝 ──
+}
+
+// path의 bbox 중심 계산 (LABEL_POS fallback용)
+function getCenter(d){
+  const nums = (d.match(/-?\d+\.?\d*/g)||[]).map(Number);
+  const xs=[],ys=[];
+  for(let i=0;i<nums.length-1;i+=2){xs.push(nums[i]);ys.push(nums[i+1]);}
+  return {
+    x:Math.round((Math.min(...xs)+Math.max(...xs))/2),
+    y:Math.round((Math.min(...ys)+Math.max(...ys))/2)
+  };
+}
+
+function refreshMap(){
+  // 도(道) path 색상 갱신 (제주 inset 포함)
+  document.querySelectorAll('#kmap path[data-code]').forEach(p=>{
+    const c=p.getAttribute('data-code');
+    p.setAttribute('fill', getFill(c));
+    p.className.baseVal='rpath'+(c===selCode?' selected':'');
+  });
+  // 도(道) 라벨 갱신
+  document.querySelectorAll('#kmap text.rlabel:not(.metro)').forEach(t=>{
+    const c=t.previousElementSibling?.getAttribute('data-code');
+    if(!c) return;
+    t.className.baseVal='rlabel'+(c===selCode?' selected':'');
+  });
+  // 광역시 dot 갱신
+  document.querySelectorAll('#kmap circle.metro-dot').forEach(dot=>{
+    const c=dot.getAttribute('data-code');
+    const isSelected = c===selCode;
+    dot.setAttribute('fill', isSelected ? DOT_SEL : DOT_METRO);
+    dot.setAttribute('r', isSelected ? 6 : 5);
+    dot.className.baseVal='metro-dot'+(isSelected?' selected':'');
+  });
+  // 광역시 라벨 갱신
+  document.querySelectorAll('#kmap text.rlabel.metro').forEach(t=>{
+    const dot = t.parentElement?.querySelector('circle.metro-dot');
+    const c = dot?.getAttribute('data-code');
+    if(!c) return;
+    t.className.baseVal='rlabel metro'+(c===selCode?' selected':'');
+  });
+}
+
+/* ══════════════════════════════════════════════
+   탭 ↔ 지도 동기화 (변경 없음)
+══════════════════════════════════════════════ */
+function syncTabs(){
+  document.querySelectorAll('.rtab').forEach(t=>t.classList.toggle('on', t.dataset.c===selCode));
+}
+function pickRegion(el){
+  selCode=el.dataset.c;
+  currentPage = 1; totalCount = 0;
+  syncTabs();
+  refreshMap();
+  doSearch();
+}
+
+/* ══════════════════════════════════════════════
+   서버 헬스체크 (변경 없음)
+══════════════════════════════════════════════ */
+/* [변경] 서버 URL 입력창 토글 함수
+   배지 클릭 시 srv-detail에 open 클래스를 붙이고 떼는 방식
+   CSS의 max-height 트랜지션이 실제 애니메이션을 담당함
+   toggle 패턴: classList.toggle('open') 한 번에 처리 */
+function toggleSrvDetail() {
+  const detail  = document.getElementById('srv-detail');
+  const badge   = document.getElementById('srv-badge');
+  const chevron = document.getElementById('srv-chevron');
+
+  const isOpen = detail.classList.toggle('open');   // open이면 true 반환
+  badge.classList.toggle('open', isOpen);           // 배지에도 open 동기화 (꺾쇠 회전용)
+
+  /* 펼쳐질 때 input에 자동 포커스
+     사용자가 바로 타이핑할 수 있도록 UX 개선 */
+  if (isOpen) {
+    setTimeout(() => document.getElementById('srv-url').focus(), 210);
+  }
+}
+async function checkServer(){
+  const dot=document.getElementById('srv-dot');
+  const txt=document.getElementById('srv-txt');
+  const base=document.getElementById('srv-url').value.trim().replace(/\/$/,'');
+  dot.className='srv-dot chk'; txt.textContent='확인 중...';
+  try{
+    const today=new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const res=await fetch(`${base}/api/kopis?stdate=${today}&eddate=${today}&rows=1`,
+      {signal:AbortSignal.timeout(4000)});
+    if(res.ok){dot.className='srv-dot ok';txt.textContent='서버 연결됨';return true;}
+    throw new Error(`HTTP ${res.status}`);
+  }catch(e){
+    dot.className='srv-dot err';
+    txt.textContent=`연결 실패`;
+    return false;
+  }
+}
+
+let currentPage = 1;
+let totalCount  = 0;   // 서버가 내려준 전체 건수 — 다음 버튼 활성화 판단에 사용
+const PAGE_SIZE = 100;
+
+/* ══════════════════════════════════════════════
+   API URL 빌더
+══════════════════════════════════════════════ */
+function buildUrl(){
+  const base  = document.getElementById('srv-url').value.trim().replace(/\/$/,'');
+  const st    = document.getElementById('st').value.replace(/-/g,'');
+  const ed    = document.getElementById('ed').value.replace(/-/g,'');
+  const genre = document.getElementById('sel-genre').value;
+  const state = document.getElementById('sel-state').value;
+  const p = new URLSearchParams({stdate:st, eddate:ed, cpage:currentPage.toString(), rows:PAGE_SIZE.toString()});
+  if(selCode) p.set('signgucode', selCode);
+  if(genre)   p.set('shcate', genre);
+  if(state)   p.set('prfstate', state);
+  return `${base}/api/kopis?${p}`;
+}
+
+/* 페이지 이동 */
+function movePage(step){
+  // 상한은 '다음' 버튼 비활성화로 제어되므로 하한(1페이지)만 보정
+  currentPage = Math.max(currentPage + step, 1);
+  doSearch();
+}
+
+/* 페이징 UI 갱신 — 한 곳에서만 처리 */
+function updatePagination(itemCount){
+  const wrap    = document.getElementById('pagination-wrap');
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  const info    = document.getElementById('page-info');
+  if(!wrap) return;
+
+  if(itemCount === 0){
+    wrap.style.display = 'none';
+    return;
+  }
+
+  // KOPIS API는 전체 건수를 주지 않으므로 '현재 페이지가 가득 찼는가'로 다음 페이지 존재를 추정
+  wrap.style.display = 'flex';
+  info.textContent   = `${currentPage} 페이지`;
+  btnPrev.disabled   = (currentPage <= 1);
+  btnNext.disabled   = (itemCount < PAGE_SIZE);
+}
+
+/* 공연 카드 1개 생성 (NEW/기존 섹션에서 공통 재사용) */
+function createPerfCard(item){
+  const isOpen  = item.openrun === 'Y';
+  const stClass = STATE_CLASS[item.prfstate] || 'tag-end';
+  const card    = document.createElement('div');
+  card.className = 'pitem';
+  card.setAttribute('role','button');
+  card.innerHTML = `
+    <div class="pcheck" style="display:flex; align-items:center; padding: 0 8px;">
+      <input type="checkbox" class="prf-checkbox" style="width:18px; height:18px; cursor:pointer;">
+    </div>
+    <div class="poster">${item.poster
+      ? `<img src="${item.poster.replace('http://','https://')}" alt="${item.prfnm} 포스터" loading="lazy"
+           onerror="this.parentElement.innerHTML='<i class=\\'ti ti-photo\\' style=\\'font-size:15px;color:var(--color-text-tertiary)\\'></i>'">`
+      : `<i class="ti ti-photo" style="font-size:15px;color:var(--color-text-tertiary)" aria-hidden="true"></i>`}
+    </div>
+    <div class="pinfo">
+      <div class="ptitle" title="${item.prfnm}">${item.prfnm}</div>
+      <div class="pvenue">${item.fcltynm}</div>
+      <div class="pdate">${item.prfpdfrom} ~ ${item.prfpdto}</div>
+      <div class="ptags">
+        ${item.is_new?'<span class="tag tag-new">🆕 NEW</span>':''}
+        <span class="tag">${item.genrenm||'–'}</span>
+        <span class="tag ${stClass}">${item.prfstate||'–'}</span>
+        ${isOpen?'<span class="tag tag-open">오픈런</span>':''}
+      </div>
+    </div>`;
+
+  // 체크박스에 공연 데이터 객체(item) 통째로 심기 + 카드 팝업 전파 방지
+  const checkbox = card.querySelector('.prf-checkbox');
+  checkbox.performanceData = item;
+  checkbox.addEventListener('click', (e) => { e.stopPropagation(); });
+
+  card.addEventListener('click', () => {
+    alert(`[${item.prfnm}] 공연 상세 정보 팝업창을 준비 중입니다! 🛠️`);
+  });
+  return card;
+}
+
+/* ══════════════════════════════════════════════
+   리스트 렌더링 (마지막 조회 결과 캐싱 → 신규만 필터는 재조회 없이 동작)
+   ※ 재조회 시 백엔드가 이미 INSERT하여 is_new가 false로 바뀌므로,
+     반드시 화면에 로드된 lastItems 기준으로 클라이언트 필터링해야 함
+══════════════════════════════════════════════ */
+let lastItems = [];
+
+function renderList(){
+  const plist   = document.getElementById('plist');
+  const onlyNew = document.getElementById('chk-only-new')?.checked;
+
+  // 전체 선택 체크박스는 렌더할 때마다 해제 상태로 초기화
+  const selAll = document.getElementById('chk-select-all');
+  if(selAll) selAll.checked = false;
+
+  // 신규만 필터 적용
+  const source = onlyNew ? lastItems.filter(i => i.is_new) : lastItems;
+
+  if(!source.length){
+    plist.innerHTML = `<div class="smsg"><i class="ti ti-calendar-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>${onlyNew ? '이 페이지에 신규 공연이 없습니다' : '해당 조건의 공연이 없습니다'}</div>`;
+    return;
+  }
+
+  plist.innerHTML = '';
+
+  // NEW 공연과 기존 공연 분리
+  const newItems = source.filter(i => i.is_new);
+  const oldItems = source.filter(i => !i.is_new);
+
+  // 1) 상단: 새로운 공연 섹션 (NEW가 있을 때만 헤더 표시)
+  if(newItems.length){
+    const headNew = document.createElement('div');
+    headNew.className = 'plist-sec new';
+    headNew.innerHTML = `🆕 새로운 공연 <span class="sec-cnt">${newItems.length}건</span>`;
+    plist.appendChild(headNew);
+    newItems.forEach(item => plist.appendChild(createPerfCard(item)));
+
+    // NEW와 기존이 함께 있을 때만 구분 헤더 추가
+    if(oldItems.length){
+      const headOld = document.createElement('div');
+      headOld.className = 'plist-sec';
+      headOld.innerHTML = `공연 목록 <span class="sec-cnt">${oldItems.length}건</span>`;
+      plist.appendChild(headOld);
+    }
+  }
+
+  // 2) 하단: 기존 공연 리스트
+  oldItems.forEach(item => plist.appendChild(createPerfCard(item)));
+}
+
+// 전체 선택 / 해제: 현재 화면에 보이는 모든 체크박스 토글
+function toggleSelectAll(el){
+  document.querySelectorAll('.prf-checkbox').forEach(cb => { cb.checked = el.checked; });
+}
+
+/* ══════════════════════════════════════════════
+   메인 조회
+══════════════════════════════════════════════ */
+async function doSearch(){
+  const url    = buildUrl();
+  const genre  = document.getElementById('sel-genre').value;
+  const plist  = document.getElementById('plist');
+  const banner = document.getElementById('err-banner');
+
+  document.getElementById('ltitle').textContent =
+    `${REGION_LABEL[selCode]||'전체'}${genre?' · '+(GENRE_LABEL[genre]||''):''}`;
+  document.getElementById('s-region').textContent = REGION_LABEL[selCode]||'전체';
+  document.getElementById('s-genre').textContent  = GENRE_LABEL[genre]||'전체';
+  document.getElementById('s-total').textContent  = '–';
+  document.getElementById('lcnt').textContent     = '0건';
+  banner.style.display = 'none';
+  document.getElementById('btn-go').disabled = true;
+  plist.innerHTML = '<div class="spin-wrap"><div class="spin"></div>불러오는 중...</div>';
+  updatePagination(0);
+
+  try{
+    const res  = await fetch(url, {signal:AbortSignal.timeout(10000)});
+    if(!res.ok) throw{type:'http', status:res.status};
+    const json = await res.json();
+    if(json.status !== 'success') throw{type:'api', detail:json.detail||'응답 오류'};
+
+    const items = json.data || [];
+    lastItems = items;  // 신규만 필터가 재조회 없이 쓰도록 이번 페이지 결과 캐싱
+    // total_count가 있으면 사용, 없으면 현재 페이지 데이터로 추정 유지
+    if(json.total_count != null) totalCount = json.total_count;
+    else if(currentPage === 1)   totalCount = items.length; // 1페이지면 최소값으로 초기화
+
+    document.getElementById('s-total').textContent = totalCount || items.length;
+    document.getElementById('lcnt').textContent    = `${totalCount || items.length}건`;
+
+    if(!items.length){
+      plist.innerHTML = '<div class="smsg"><i class="ti ti-calendar-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>해당 조건의 공연이 없습니다</div>';
+      updatePagination(0);
+      return;
+    }
+
+    renderList();  // NEW/기존 분리 + 신규만 필터 반영
+    updatePagination(items.length);
+
+  }catch(err){
+    const isNet = err instanceof TypeError || err?.name === 'AbortError';
+    plist.innerHTML = `<div class="smsg"><i class="ti ti-server-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>${isNet?'FastAPI 서버에 연결할 수 없습니다':'API 응답 오류'}<br><span style="font-size:10px;color:var(--color-text-tertiary)">${isNet?'uvicorn main:app --reload':'HTTP '+(err?.status||'')}</span></div>`;
+    banner.style.display = 'block';
+    banner.textContent   = isNet ? '서버 실행: uvicorn main:app --reload' : '서버 오류: '+(err?.status||err?.detail||'');
+    document.getElementById('s-total').textContent = '–';
+    updatePagination(0);
+  }finally{
+    document.getElementById('btn-go').disabled = false;
+  }
+}
+
+document.getElementById('btn-go').addEventListener('click', () => {
+  currentPage = 1; totalCount = 0;
+  doSearch();
+});
+    
+/* ══════════════════════════════════════════════
+   페이지 로드 시: 기본 날짜 자동 세팅 (오늘 ~ 한 달 뒤)
+══════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  // 회원님의 HTML에 맞춰 아이디를 'st', 'ed'로 정확히 수정했습니다!
+  const startDateInput = document.getElementById('st'); 
+  const endDateInput = document.getElementById('ed');
+
+  if (startDateInput && endDateInput) {
+    const today = new Date();
+    const nextMonth = new Date();
+    nextMonth.setMonth(today.getMonth() + 1);
+
+    // YYYY-MM-DD 형태로 변환해주는 함수
+    const formatDate = (date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    // 달력 칸에 오늘 날짜와 한 달 뒤 날짜 주입!
+    startDateInput.value = formatDate(today);
+    endDateInput.value = formatDate(nextMonth);
+  }
+});
+
+/* ══════════════════════════════════════════════
+   초기화 (변경 없음)
+══════════════════════════════════════════════ */
+document.getElementById('srv-url').addEventListener('change',()=>{
+  checkServer().then(ok=>{if(ok)doSearch();});
+});
+
+buildMap();
+checkServer().then(ok=>{
+  if(ok) doSearch();
+  else document.getElementById('plist').innerHTML=`
+    <div class="smsg">
+      <i class="ti ti-server-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>
+      FastAPI 서버가 꺼져 있습니다<br>
+      <span style="font-size:10px;color:var(--color-text-tertiary)">uvicorn main:app --reload</span>
+    </div>`;
+});
+
+/* ══════════════════════════════════════════
+   이메일 발송 모달
+══════════════════════════════════════════ */
+let selectedMailRegions = ['전체'];  // 선택된 지역 목록
+
+function openMailModal() {
+  document.getElementById('mail-modal').style.display = 'flex';
+  document.getElementById('mail-result').style.display = 'none';
+  updateMailSelectedDisplay();
+}
+
+function closeMailModal() {
+  document.getElementById('mail-modal').style.display = 'none';
+}
+
+function toggleMailRegion(el) {
+  const region = el.dataset.r;
+
+  if (region === '전체') {
+    // 전체 선택 시 다른 태그 모두 해제
+    selectedMailRegions = ['전체'];
+    document.querySelectorAll('.mail-rtag').forEach(t => {
+      t.classList.toggle('on', t.dataset.r === '전체');
+    });
+  } else {
+    // 개별 지역 선택 시 '전체' 해제
+    const allTag = document.querySelector('.mail-rtag[data-r="전체"]');
+    allTag.classList.remove('on');
+    selectedMailRegions = selectedMailRegions.filter(r => r !== '전체');
+
+    // 이미 선택된 지역이면 해제, 아니면 추가
+    if (selectedMailRegions.includes(region)) {
+      selectedMailRegions = selectedMailRegions.filter(r => r !== region);
+      el.classList.remove('on');
+    } else {
+      selectedMailRegions.push(region);
+      el.classList.add('on');
+    }
+
+    // 아무것도 선택 안 되면 전체로 되돌리기
+    if (selectedMailRegions.length === 0) {
+      selectedMailRegions = ['전체'];
+      allTag.classList.add('on');
+    }
+  }
+
+  updateMailSelectedDisplay();
+}
+
+function updateMailSelectedDisplay() {
+  const display = document.getElementById('mail-selected-display');
+  if (selectedMailRegions.includes('전체')) {
+    display.textContent = '전체 지역 (모든 지점)';
+  } else {
+    display.textContent = selectedMailRegions.join(', ') + ' 지역';
+  }
+}
+
+async function sendMail() {
+  const base = document.getElementById('srv-url').value.trim().replace(/\/$/, '');
+  const btn  = document.getElementById('btn-send-mail');
+  const result = document.getElementById('mail-result');
+
+  btn.disabled = true;
+  btn.textContent = '발송 중...';
+  result.style.display = 'none';
+
+  // 선택 지역을 쿼리 파라미터로 전달
+  const regions = selectedMailRegions.includes('전체') ? '' : selectedMailRegions.join(',');
+  const url = regions
+    ? `${base}/api/send-daily-email?regions=${encodeURIComponent(regions)}`
+    : `${base}/api/send-daily-email`;
+
+  try {
+    const res  = await fetch(url, { signal: AbortSignal.timeout(30000) });
+    const json = await res.json();
+
+    const success = json.results?.filter(r => r.status === 'success').length || 0;
+    const fail    = json.results?.filter(r => r.status === 'fail').length || 0;
+
+    result.style.display = 'block';
+    result.innerHTML = `
+      ✅ 발송 완료: ${success}건<br>
+      ${fail > 0 ? `❌ 실패: ${fail}건` : ''}
+    `;
+  } catch (e) {
+    result.style.display = 'block';
+    result.innerHTML = '❌ 발송 실패: 서버 연결을 확인해주세요.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '발송하기';
+  }
+}
+    /* ══════════════════════════════════════════════
+   🌟 [신규 추가] 선택 발송 기능
+══════════════════════════════════════════════ */
+async function doSendSelected() {
+  // 1. 화면에서 체크박스가 켜진 애들만 싹 긁어오기
+  const checkboxes = document.querySelectorAll('.prf-checkbox:checked');
+  if (!checkboxes.length) {
+    alert('⚠️ 발송할 공연을 최소 하나 이상 선택해 주세요!');
+    return;
+  }
+
+  // 2. 체크된 상자 안에 심어두었던 순수한 공연 데이터(item) 추출
+  const selectedPerformances = [];
+  checkboxes.forEach(cb => {
+    selectedPerformances.push(cb.performanceData);
+  });
+
+  // 3. 현재 대시보드 화면에 선택되어 있는 지역명 추출 ("서울", "경기" 등 한글)
+  const currentRegionName = REGION_LABEL[selCode] || '전체';
+
+  if (currentRegionName === '전체') {
+    alert('⚠️ 메일을 보낼 특정 지역(지점)을 먼저 선택한 뒤 발송해 주세요!\n(전체 검색 상태에서는 오발송 위험이 있어 발송을 제한합니다.)');
+    return;
+  }
+
+  // 관리자 최종 확인 문구
+  if (!confirm(`[${currentRegionName}] 지역 지점들에 선택한 ${selectedPerformances.length}건의 공연 안내 메일을 발송할까요?`)) {
+    return;
+  }
+
+  // 4. 백엔드로 보낼 최종Payload 조립
+  const payload = {
+    regions: [currentRegionName],
+    performances: selectedPerformances
+  };
+
+  const btnSend = document.getElementById('btn-send');
+  btnSend.disabled = true;
+  btnSend.textContent = '발송 중...';
+
+  try {
+    // 5. 방금 Render에 배포 완료한 새 POST API 호출!
+    // ⚠️ 'https://내-렌더-주소.onrender.com' 부분을 실제 주소로 꼭 교체해 주세요!
+    const res = await fetch("https://hs-kopis.onrender.com/api/send-selected", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    // 응답 본문을 먼저 읽어 실제 에러 원인을 확인 (422/500 디버깅용)
+    const raw = await res.text();
+    if (!res.ok) {
+      console.error("선택 발송 HTTP 에러:", res.status, raw);
+      alert(`🚨 발송 실패 (HTTP ${res.status})\n${raw.slice(0, 300)}`);
+      return;
+    }
+    const json = JSON.parse(raw);
+
+    if (json.status === 'done') {
+      alert(`🎉 [${currentRegionName}] 지역 지점들(총 ${json.total_sent}개 이메일)에 발송 성공했습니다!`);
+    } else {
+      alert(`🚨 발송 실패: ${json.detail || '서버 응답 오류'}`);
+    }
+  } catch (err) {
+    console.error("선택 발송 에러:", err);
+    alert('🚨 서버 통신 실패! Render 서버가 켜져 있는지 확인해 주세요.\n' + (err?.message || ''));
+  } finally {
+    btnSend.disabled = false;
+    btnSend.textContent = '선택 발송';
+  }
+}
+
+// 🌟 선택 발송 버튼에 이벤트 연결 (기존 btn-go 리스너 바로 밑에 두시면 됩니다)
+document.getElementById('btn-send').addEventListener('click', doSendSelected);
+    
+</script>
