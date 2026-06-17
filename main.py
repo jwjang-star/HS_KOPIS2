@@ -155,78 +155,135 @@ def send_email(to_email: str, subject: str, body: str):
 
 # 🔹 [Phase 4] Data Insight 자동 생성 함수
 def generate_data_insight(prf: dict) -> dict:
-    """공연 장르·공연명 키워드 기반으로 수요 예측 인사이트를 생성합니다."""
+    """공연장 규모 + 기간 + 공연명 키워드 기반으로 수요 예측 인사이트를 생성합니다."""
     genre = prf.get("genrenm", "")
     name  = prf.get("prfnm", "")
+    venue = prf.get("fcltynm", "")
+    pfrom = prf.get("prfpdfrom", "")
+    pto   = prf.get("prfpdto", "")
 
-    # 페스티벌/축제 키워드 최우선 판별
-    festival_kw = ["페스티벌", "페스타", "FESTIVAL", "Festival", "축제", "뮤직페스", "Music Fest"]
-    if any(kw in name for kw in festival_kw):
-        return {
-            "level": "&#9733; 초고수요 예상",
-            "color": "#C0392B",
-            "bg": "#FEF0EF",
-            "border": "#E74C3C",
-            "comment": "대형 페스티벌 기간 중 인근 숙박 수요가 급증합니다. 해당 기간 요금 30~50% 인상 및 최소 투숙일 설정을 강력히 권장합니다."
-        }
+    # 공연 기간(일수) 계산
+    duration = 1
+    try:
+        d1 = datetime.strptime(pfrom, "%Y.%m.%d")
+        d2 = datetime.strptime(pto,   "%Y.%m.%d")
+        duration = (d2 - d1).days + 1
+    except Exception:
+        pass
 
-    # 장르별 인사이트
+    # 공연장 규모 키워드
+    mega_venue_kw  = ["올림픽", "아시아드", "아레나", "인스파이어", "KSPO", "kspo",
+                      "잠실", "고척", "상암", "월드컵", "체조경기장"]
+    large_venue_kw = ["문화회관", "예술회관", "아트센터", "콘서트홀", "공연장", "아트홀"]
+    is_mega  = any(kw in venue for kw in mega_venue_kw)
+    is_large = any(kw in venue for kw in large_venue_kw)
+
+    # 공연명 유형 키워드
+    is_festival = any(kw in name for kw in ["페스티벌", "페스타", "FESTIVAL", "Festival", "축제", "뮤직페스"])
+    is_awards   = any(kw in name for kw in ["AWARDS", "Awards", "어워즈", "시상식", "가요대상", "음악대상"])
+    is_tour     = any(kw in name for kw in ["TOUR", "Tour", "투어", "전국투어"])
+    is_memorial = any(kw in name for kw in ["주년", "기념", "Anniversary", "ANNIVERSARY"])
+
+    # ── 대중음악: 세분화 판별 ──────────────────────────────────────────────────
     if "대중음악" in genre:
+
+        # 1순위: 페스티벌
+        if is_festival:
+            return {
+                "level": "&#9733; 초고수요 예상",
+                "color": "#C0392B", "bg": "#FEF0EF", "border": "#E74C3C",
+                "comment": "대형 페스티벌 기간 중 인근 숙박 수요 급증이 예상됩니다. "
+                           "요금 30~50% 인상 및 최소 투숙일 설정을 강력히 권장합니다."
+            }
+
+        # 2순위: 시상식 (당일 집중)
+        if is_awards:
+            return {
+                "level": "&#9733; 초단기 집중 수요",
+                "color": "#C0392B", "bg": "#FEF0EF", "border": "#E74C3C",
+                "comment": "시상식 특성상 공연 당일 전·후 숙박 수요가 집중됩니다. "
+                           "1~2일 한정 최고가 설정 및 빠른 예약 마감을 권장합니다."
+            }
+
+        # 3순위: 초대형 공연장
+        if is_mega:
+            if duration >= 2:
+                return {
+                    "level": "&#9650; 초고수요 예상",
+                    "color": "#C0392B", "bg": "#FEF0EF", "border": "#E74C3C",
+                    "comment": f"대형 공연장 {duration}일 연속 공연으로 주변 숙박 만실이 우려됩니다. "
+                               "전 기간 최고가 설정 및 연박 패키지 구성을 강력히 권장합니다."
+                }
+            return {
+                "level": "&#9650; 높은 수요 예상",
+                "color": "#1A5276", "bg": "#EBF5FB", "border": "#2E86C1",
+                "comment": "대형 공연장 단독 공연으로 공연 전날·당일 숙박 수요 급증이 예상됩니다. "
+                           "해당 기간 최고가 설정을 권장합니다."
+            }
+
+        # 4순위: 전국 투어
+        if is_tour:
+            return {
+                "level": "&#9650; 투어 집중 수요",
+                "color": "#1A5276", "bg": "#EBF5FB", "border": "#2E86C1",
+                "comment": "전국 투어 공연으로 타 지역 팬덤의 이동 숙박 수요가 예상됩니다. "
+                           "공연일 기준 1박 패키지 요금 최적화를 검토하세요."
+            }
+
+        # 5순위: 기념 공연
+        if is_memorial:
+            return {
+                "level": "&#9670; 팬덤 집중 수요",
+                "color": "#6C3483", "bg": "#F5EEF8", "border": "#8E44AD",
+                "comment": "기념 공연 특성상 충성 팬덤의 원거리 이동 숙박 수요가 예상됩니다. "
+                           "조기 예약 할인 종료 및 요금 인상을 검토하세요."
+            }
+
+        # 6순위: 중형 공연장 + 다일
+        if is_large and duration >= 2:
+            return {
+                "level": "&#9654; 안정적 수요",
+                "color": "#2C3E50", "bg": "#F2F3F4", "border": "#95A5A6",
+                "comment": f"{duration}일 연속 공연으로 안정적인 숙박 수요가 기대됩니다. "
+                           "현행 요금 유지 또는 소폭 인상을 검토하세요."
+            }
+
+        # 기본 (소규모 단일 공연)
         return {
-            "level": "&#9650; 높은 수요 예상",
-            "color": "#1A5276",
-            "bg": "#EBF5FB",
-            "border": "#2E86C1",
-            "comment": "콘서트 관람객의 1박 숙박 수요 증가가 예상됩니다. 공연 전날·당일 요금 최적화 및 패키지 상품 구성을 검토하세요."
+            "level": "&#9654; 안정적 수요",
+            "color": "#2C3E50", "bg": "#F2F3F4", "border": "#95A5A6",
+            "comment": "공연 당일 주변 숙박 수요 소폭 증가가 예상됩니다. "
+                       "현행 요금을 유지하되 당일 취소 정책 강화를 검토하세요."
         }
+
+    # ── 기타 장르 ─────────────────────────────────────────────────────────────
     if "뮤지컬" in genre:
         return {
             "level": "&#9670; 주말 집중 수요",
-            "color": "#6C3483",
-            "bg": "#F5EEF8",
-            "border": "#8E44AD",
-            "comment": "뮤지컬 관람객은 주말 집중 방문 패턴을 보입니다. 주말 요금 차등 적용 및 조기 예약 할인 중단을 권장합니다."
+            "color": "#6C3483", "bg": "#F5EEF8", "border": "#8E44AD",
+            "comment": "뮤지컬 관람객은 주말 집중 방문 패턴을 보입니다. "
+                       "주말 요금 차등 적용 및 조기 예약 할인 중단을 권장합니다."
         }
     if "서양음악" in genre or "클래식" in genre:
         return {
             "level": "&#9733; 프리미엄 수요",
-            "color": "#1E4D2B",
-            "bg": "#EAFAF1",
-            "border": "#27AE60",
-            "comment": "클래식 공연 관람객은 고급 숙박 선호도가 높습니다. 프리미엄 룸 위주의 요금 인상과 업셀링 전략을 추천합니다."
+            "color": "#1E4D2B", "bg": "#EAFAF1", "border": "#27AE60",
+            "comment": "클래식 공연 관람객은 고급 숙박 선호도가 높습니다. "
+                       "프리미엄 룸 위주의 요금 인상과 업셀링 전략을 추천합니다."
         }
     if "한국음악" in genre or "국악" in genre:
         return {
             "level": "&#9834; 문화 관광 수요",
-            "color": "#784212",
-            "bg": "#FEF9E7",
-            "border": "#F39C12",
-            "comment": "전통 공연 연계 문화 관광객의 숙박 수요 증가가 예상됩니다. 지역 문화 패키지 상품 연계를 검토하세요."
-        }
-    if "연극" in genre:
-        return {
-            "level": "&#9654; 안정적 수요",
-            "color": "#2C3E50",
-            "bg": "#F2F3F4",
-            "border": "#95A5A6",
-            "comment": "연극 공연 기간 중 평균 이상의 안정적인 숙박 수요가 기대됩니다. 현행 요금 수준 유지 또는 소폭 인상을 검토하세요."
-        }
-    if "무용" in genre:
-        return {
-            "level": "&#9670; 중간 수요 예상",
-            "color": "#943126",
-            "bg": "#FDEDEC",
-            "border": "#E74C3C",
-            "comment": "무용 공연 기간 중 관람객 숙박 수요 증가가 예상됩니다. 주변 관광 패키지와 연계한 프로모션을 검토하세요."
+            "color": "#784212", "bg": "#FEF9E7", "border": "#F39C12",
+            "comment": "전통 공연 연계 문화 관광객의 숙박 수요 증가가 예상됩니다. "
+                       "지역 문화 패키지 상품 연계를 검토하세요."
         }
 
-    # 기본 인사이트
     return {
         "level": "&#9650; 수요 증가 예상",
-        "color": "#1A5276",
-        "bg": "#EBF5FB",
-        "border": "#2E86C1",
-        "comment": "공연 기간 중 지점 주변 숙박 수요 증가가 예상됩니다. 해당 기간 요금 최적화를 검토하세요."
+        "color": "#1A5276", "bg": "#EBF5FB", "border": "#2E86C1",
+        "comment": "공연 기간 중 지점 주변 숙박 수요 증가가 예상됩니다. "
+                   "해당 기간 요금 최적화를 검토하세요."
     }
 
 
