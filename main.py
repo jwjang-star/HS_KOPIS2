@@ -473,7 +473,7 @@ def send_selected_email(payload: SendRequest):
 
         for region in payload.regions:
             if region not in recipients: continue
-            subject = f"[더휴식] {region} 지역 신규 추천 공연 안내 ({today_str})"
+            subject = f"[HSO] {region} 공연 일정 & 요금 최적화 안내"
             body = build_email_body(region, payload.performances)
 
             for email in recipients[region]:
