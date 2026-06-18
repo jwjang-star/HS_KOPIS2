@@ -381,7 +381,7 @@ def build_email_body(region: str, performances: list):
   <!-- 도입부 -->
   <tr><td style="padding:24px 32px;border-bottom:1px solid #EAECEE;background:#F8FAFC;">
     <p style="margin:0;font-size:14px;color:#555;line-height:1.9;">
-      다가오는 성수기 시즌을 맞아 <strong>KOPIS 공연 데이터를 기반으로 가격 설정 전략을 제안</strong>합니다.<br>
+      <strong>KOPIS 공연 데이터를 기반으로 가격 설정 전략을 제안</strong>합니다.<br>
       지점 주변 대규모 공연/페스티벌 정보를 참고하여 <strong>객실 요금 최적화</strong>를 검토하세요.
     </p>
   </td></tr>
