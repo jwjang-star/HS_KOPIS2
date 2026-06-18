@@ -42,6 +42,11 @@ class SendRequest(BaseModel):
 
 
 # 🔹 [보완 완료] 메인 조회 API (신규 공연 감지 + 벌크 적재 기능 탑재)
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.get("/api/kopis")
 def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, signgucode: str = "", shcate: str = "", prfstate: str = ""):
     params = {
