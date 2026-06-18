@@ -4,7 +4,7 @@ import requests
 import xml.etree.ElementTree as ET
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # 🌟 Pydantic 및 Typing (선택 발송용 그릇)
 from pydantic import BaseModel
@@ -60,12 +60,22 @@ def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, si
     
     # 💡 [지역 매칭 보완] 해당 지역코드로 저장된 기록만 딱 집어서 가져옵니다.
     target_region = signgucode if signgucode else "전체"
+    KST = timezone(timedelta(hours=9))
+    today_kst = datetime.now(KST).date()
+
+    def is_new_today(created_at_str: str) -> bool:
+        try:
+            dt = datetime.fromisoformat(created_at_str).astimezone(KST)
+            return dt.date() == today_kst
+        except Exception:
+            return False
+
     try:
-        db_res = supabase.table("HS_KOPIS2").select("mt20id").eq("region", target_region).execute()
-        existing_ids = {row["mt20id"] for row in db_res.data}
+        db_res = supabase.table("HS_KOPIS2").select("mt20id, created_at").eq("region", target_region).execute()
+        existing = {row["mt20id"]: row["created_at"] for row in db_res.data}
     except Exception as db_err:
         print(f"🚨 Supabase 조회 실패 (처음에는 비어있음): {db_err}")
-        existing_ids = set()
+        existing = {}
 
     data = []
     to_insert = [] # 🌟 [성능 최적화] 신규 공연들을 모아둘 보따리 생성
@@ -78,17 +88,19 @@ def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, si
         prfpdfrom = db.findtext('prfpdfrom') or ""
         prfpdto = db.findtext('prfpdto') or ""
         
-        # 해당 지역에서 처음 발견된 공연 ID라면 NEW 딱지!
+        # 오늘(KST 0시 이후) 처음 발견된 공연이면 NEW 딱지!
         is_new = False
-        if mt20id and (mt20id not in existing_ids):
-            is_new = True
-            # 루프 안에서 바로 저장하지 않고, 보따리에 담아둡니다 (속도 저하 방지)
-            to_insert.append({
-                "mt20id": mt20id,
-                "region": target_region,
-                "prfnm": prfnm,
-                "prfpdfrom": prfpdfrom
-            })
+        if mt20id:
+            if mt20id not in existing:
+                is_new = True
+                to_insert.append({
+                    "mt20id": mt20id,
+                    "region": target_region,
+                    "prfnm": prfnm,
+                    "prfpdfrom": prfpdfrom
+                })
+            elif is_new_today(existing[mt20id]):
+                is_new = True
 
         item = {
             "mt20id": mt20id,
@@ -291,7 +303,7 @@ def generate_data_insight(prf: dict) -> dict:
 def build_email_body(region: str, performances: list):
     today     = datetime.today().strftime("%Y년 %m월 %d일")
     today_sub = datetime.today().strftime("%Y-%m-%d")
-    dashboard_url = "https://hs-kopis.onrender.com"
+    dashboard_url = "https://jwjang-star.github.io/HS_KOPIS2/"
 
     # 공연 카드 블록 생성
     perf_blocks = ""
