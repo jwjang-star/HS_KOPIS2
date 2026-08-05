@@ -33,6 +33,10 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://bnicadeeglrnymggybig.supa
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_srOFgWBdXvCInVC6dcGDrA_tz2xPkmy")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# 공휴일(특일) API — data.go.kr 한국천문연구원_특일 정보 (Phase 1: 연휴 가산점)
+KASI_API_KEY = os.environ.get("KASI_API_KEY", "")
+KASI_URL = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo"
+
 # 선택 발송 데이터 수신용 그릇 정의
 # 🔧 performances의 값에 is_new(boolean) 등 문자열이 아닌 필드가 섞여 들어와도
 #    Pydantic 검증(422)에 걸리지 않도록 Dict로 완화 (build_email_body는 .get으로 안전 접근)
@@ -304,6 +308,114 @@ def generate_data_insight(prf: dict) -> dict:
     }
 
 
+# 🔹 [Phase 1] 공휴일/연휴 가산점 — data.go.kr 한국천문연구원 특일 정보 연동
+# ⚠️ generate_data_insight()는 절대 수정하지 않고, 그 결과를 감싸는 방식으로만 확장합니다.
+_holiday_cache: dict = {}  # {연도(int): [{"date": datetime, "name": str, "is_holiday": bool}, ...]}
+
+def get_holidays(year: int) -> list:
+    """KASI 특일 정보 API에서 연도별 공휴일 목록을 가져옵니다 (연도 단위 in-memory 캐시)."""
+    if year in _holiday_cache:
+        return _holiday_cache[year]
+    if not KASI_API_KEY:
+        return []
+
+    params = {"ServiceKey": KASI_API_KEY, "pageNo": 1, "numOfRows": 100, "solYear": year}
+    try:
+        response = requests.get(KASI_URL, params=params, timeout=10)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+
+        if root.findtext('.//resultCode') != '00':
+            print(f"🚨 KASI 공휴일 API 응답 오류 ({year}): {root.findtext('.//resultMsg')}")
+            return []  # 캐시하지 않음 — 다음 요청에서 재시도
+
+        holidays = []
+        for item in root.findall('.//item'):
+            locdate = item.findtext('locdate') or ""
+            try:
+                d = datetime.strptime(locdate, "%Y%m%d")
+            except ValueError:
+                continue
+            holidays.append({
+                "date": d,
+                "name": item.findtext('dateName') or "",
+                "is_holiday": (item.findtext('isHoliday') == "Y"),
+            })
+
+        _holiday_cache[year] = holidays  # 성공했을 때만 캐시
+        return holidays
+    except Exception as e:
+        print(f"🚨 KASI 공휴일 API 호출 실패 ({year}): {e}")
+        return []  # 캐시하지 않음
+
+
+def compute_holiday_periods(holidays: list, min_days: int = 2) -> list:
+    """공휴일(KASI) + 주말(토/일, 직접 계산)을 연속 구간으로 묶어 '연휴' 목록을 만듭니다.
+    - KASI 응답에는 실제 공휴일만 들어있고 평범한 주말은 없으므로, 주말은 이 함수가 직접 채워 넣습니다.
+    - 실제 공휴일이 하나도 안 낀 순수 주말 구간은 제외합니다.
+    - min_days(기본 2일) 미만인 단독 평일 공휴일도 제외합니다."""
+    real_holidays = {h["date"] for h in holidays if h["is_holiday"]}
+    if not real_holidays:
+        return []
+
+    d = min(real_holidays) - timedelta(days=3)
+    end = max(real_holidays) + timedelta(days=3)
+    off_days = set(real_holidays)
+    while d <= end:
+        if d.weekday() >= 5:  # 5=토, 6=일
+            off_days.add(d)
+        d += timedelta(days=1)
+
+    sorted_days = sorted(off_days)
+    periods, seg_start, seg_prev = [], sorted_days[0], sorted_days[0]
+    for d in sorted_days[1:]:
+        if (d - seg_prev).days > 1:
+            periods.append((seg_start, seg_prev))
+            seg_start = d
+        seg_prev = d
+    periods.append((seg_start, seg_prev))
+
+    return [
+        {"start": s, "end": e}
+        for s, e in periods
+        if (e - s).days + 1 >= min_days and any(s <= h <= e for h in real_holidays)
+    ]
+
+
+def enrich_insight_with_holiday(insight: dict, prf: dict) -> dict:
+    """generate_data_insight()의 결과를 감싸서 연휴 가산 문구를 덧붙입니다.
+    generate_data_insight()는 건드리지 않습니다."""
+    try:
+        d1 = datetime.strptime(prf.get("prfpdfrom", ""), "%Y.%m.%d")
+        d2 = datetime.strptime(prf.get("prfpdto", ""), "%Y.%m.%d")
+    except Exception:
+        return insight  # 날짜 파싱 실패(오픈런 등) — 원본 그대로 반환
+
+    holidays = []
+    for y in sorted({d1.year, d2.year}):
+        holidays.extend(get_holidays(y))
+    periods = compute_holiday_periods(holidays)
+
+    if any(d1 <= p["end"] and d2 >= p["start"] for p in periods):
+        insight = dict(insight)
+        insight["comment"] += " 🎌 공연 기간이 연휴와 겹쳐 숙박 수요가 한층 더 높을 것으로 예상됩니다."
+    return insight
+
+
+@app.get("/api/holidays")
+def get_holiday_periods(year: int):
+    """지정 연도의 연휴 구간을 반환합니다 (프론트엔드 카드 뱃지용)."""
+    periods = compute_holiday_periods(get_holidays(year))
+    return {
+        "status": "success",
+        "year": year,
+        "periods": [
+            {"start": p["start"].strftime("%Y%m%d"), "end": p["end"].strftime("%Y%m%d")}
+            for p in periods
+        ],
+    }
+
+
 # 🔹 [Phase 4] HTML 이메일 본문 생성 함수 (수익 최적화 가이드 템플릿)
 def build_email_body(region: str, performances: list):
     today     = datetime.today().strftime("%Y년 %m월 %d일")
@@ -319,7 +431,7 @@ def build_email_body(region: str, performances: list):
         </td></tr>"""
     else:
         for i, prf in enumerate(performances):
-            insight = generate_data_insight(prf)
+            insight = enrich_insight_with_holiday(generate_data_insight(prf), prf)
             # 홀짝 배경 구분
             bg = "#ffffff" if i % 2 == 0 else "#FAFAFA"
             perf_blocks += f"""
