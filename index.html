@@ -255,6 +255,10 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 .tag-new{background:#EEF4FF;color:#1D3FAA;border-color:#A5B8F5;font-weight:600;animation:tag-new-glow 1.8s ease-in-out infinite alternate}
 @keyframes tag-new-glow{from{box-shadow:0 0 0px #A5B8F5}to{box-shadow:0 0 7px #4F73E0}}
 .tag-holiday{background:#FDEDEC;color:#943126;border-color:#F1948A}
+.holiday-strip{padding:7px 13px;font-size:11px;color:#943126;background:#FEF5F4;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.holiday-strip .hs-label{font-weight:600;flex-shrink:0}
+.holiday-strip .hs-item{background:#ffffff;border:0.5px solid #F1948A;border-radius:10px;padding:1px 7px;white-space:nowrap}
+.holiday-strip.empty{color:var(--color-text-tertiary);background:var(--color-background-primary)}
 .plist-sec{display:flex;align-items:center;gap:7px;padding:9px 12px 6px;font-size:12px;font-weight:600;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
 .plist-sec.new{color:#1D3FAA;background:#F5F8FF}
 .plist-sec .sec-cnt{font-size:10px;font-weight:500;color:var(--color-text-tertiary)}
@@ -468,6 +472,7 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
         <span class="ltitle" id="ltitle">공연 목록</span>
         <span class="lcnt" id="lcnt">0건</span>
       </div>
+      <div class="holiday-strip" id="holiday-strip" style="display:none;"></div>
       <div class="rtabs">
         <span class="rtab on" data-c="" data-n="전체" onclick="pickRegion(this)">전체</span>
         <span class="rtab" data-c="11" data-n="서울" onclick="pickRegion(this)">서울</span>
@@ -1036,10 +1041,13 @@ function updatePagination(itemCount){
    연휴 정보 (Phase 1) — /api/holidays에서 받아온 구간과
    공연 기간의 겹침 여부만 판단. 병합 알고리즘 자체는 백엔드에만 있음.
 ══════════════════════════════════════════════ */
-let holidayPeriods = [];              // [{start:'20260101', end:'20260103'}, ...]
-const loadedHolidayYears = new Set(); // 이미 불러온 연도(실패해도 추가 — 재시도 폭주 방지)
+let holidayPeriods = [];              // [{start:'20260101', end:'20260103'}, ...] — 카드 뱃지용(연휴 구간)
+let holidayList = [];                 // [{date:'20260101', name:'1월1일'}, ...] — 선택 기간 표시용(개별 공휴일)
+let loadedHolidayYears = new Set();   // 이미 불러온 연도(성공했을 때만 추가 — 실패는 다음 조회 때 재시도)
+let holidaysBase = null;              // 위 캐시가 어느 서버(srv-url) 기준인지 — 서버가 바뀌면 캐시 전부 무효화해야 함
 
 function normDate(s){ return (s||'').replace(/\D/g,''); }  // "2026.08.05" → "20260805"
+function fmtMD(yyyymmdd){ return `${yyyymmdd.slice(4,6)}/${yyyymmdd.slice(6,8)}`; }  // "20260805" → "08/05"
 
 function collectYears(items){
   const years = new Set();
@@ -1051,18 +1059,34 @@ function collectYears(items){
   return [...years];
 }
 
+// 검색창의 st~ed(선택 기간) 자체가 걸치는 연도들 — 조회 결과 유무와 무관하게 항상 정확해야 함
+function yearsInRange(stVal, edVal){
+  const y1 = +(stVal||'').slice(0,4), y2 = +(edVal||'').slice(0,4);
+  if(!y1 || !y2) return [];
+  const years = [];
+  for(let y = y1; y <= y2; y++) years.push(y);
+  return years;
+}
+
 async function loadHolidays(years){
   const base = document.getElementById('srv-url').value.trim().replace(/\/$/,'');
+  if(base !== holidaysBase){
+    // 서버가 바뀌면 이전 서버 기준으로 쌓인 캐시는 의미가 없으므로 전부 초기화
+    holidayPeriods = []; holidayList = []; loadedHolidayYears = new Set(); holidaysBase = base;
+  }
   const need = years.filter(y => !loadedHolidayYears.has(y));
   for(const y of need){
-    loadedHolidayYears.add(y);
     try{
       const res = await fetch(`${base}/api/holidays?year=${y}`, {signal:AbortSignal.timeout(5000)});
-      if(!res.ok) continue;
+      if(!res.ok) continue;  // 실패 시 loadedHolidayYears에 안 남겨서 다음 조회 때 재시도 가능하게 함
       const json = await res.json();
-      if(json.status === 'success') holidayPeriods.push(...json.periods);
+      if(json.status === 'success'){
+        holidayPeriods.push(...json.periods);
+        holidayList.push(...(json.holidays || []));
+        loadedHolidayYears.add(y);  // 성공했을 때만 "완료"로 표시 (백엔드 _holiday_cache와 동일한 사상)
+      }
     }catch(e){
-      console.warn('연휴 정보 로드 실패', y, e);  // 조용히 실패 — 뱃지만 안 뜰 뿐 나머지 기능엔 영향 없음
+      console.warn('연휴 정보 로드 실패', y, e);  // 조용히 실패 — 뱃지/위젯만 안 뜰 뿐 나머지 기능엔 영향 없음
     }
   }
 }
@@ -1071,6 +1095,28 @@ function isHolidayOverlap(item){
   const from = normDate(item.prfpdfrom), to = normDate(item.prfpdto);
   if(!from || !to) return false;
   return holidayPeriods.some(p => from <= p.end && to >= p.start);
+}
+
+// 리스트 상단 "선택 기간 공휴일" 스트립 — 조회된 공연과 무관하게 st~ed 범위의 공휴일을 전부 보여줌
+function renderHolidayStrip(stVal, edVal){
+  const el = document.getElementById('holiday-strip');
+  if(!el) return;
+  const from = normDate(stVal), to = normDate(edVal);
+  if(!from || !to){ el.style.display = 'none'; return; }
+
+  const inRange = holidayList
+    .filter(h => h.date >= from && h.date <= to)
+    .sort((a,b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
+
+  el.style.display = 'flex';
+  if(!inRange.length){
+    el.className = 'holiday-strip empty';
+    el.innerHTML = `🎌 선택 기간(${fmtMD(from)}~${fmtMD(to)}) 중 공휴일 없음`;
+    return;
+  }
+  el.className = 'holiday-strip';
+  el.innerHTML = '<span class="hs-label">🎌 선택 기간 공휴일</span>' +
+    inRange.map(h => `<span class="hs-item">${fmtMD(h.date)} ${h.name}</span>`).join('');
 }
 
 /* 공연 카드 1개 생성 (NEW/기존 섹션에서 공통 재사용) */
@@ -1203,13 +1249,20 @@ async function doSearch(){
     document.getElementById('s-total').textContent = totalCount || items.length;
     document.getElementById('lcnt').textContent    = `${totalCount || items.length}건`;
 
+    // 선택 기간(st~ed) 공휴일은 조회 결과 유무와 무관하게 항상 로드/표시
+    const stVal = document.getElementById('st').value;
+    const edVal = document.getElementById('ed').value;
+    const years = new Set(yearsInRange(stVal, edVal));
+    collectYears(items).forEach(y => years.add(y));
+    await loadHolidays([...years]);
+    renderHolidayStrip(stVal, edVal);
+
     if(!items.length){
       plist.innerHTML = '<div class="smsg"><i class="ti ti-calendar-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>해당 조건의 공연이 없습니다</div>';
       updatePagination(0);
       return;
     }
 
-    await loadHolidays(collectYears(items));
     renderList();  // NEW/기존 분리 + 신규만 필터 반영
     updatePagination(items.length);
 

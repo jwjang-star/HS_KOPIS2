@@ -39,6 +39,20 @@
 4. `build_email_body()` 전체 렌더링 정상
 5. **실제 발송 엔드포인트(`/api/send-selected` 등)는 검증 과정에서 호출하지 않음** — 로컬 환경에 `GAS_URL`/`SHEET_CSV_URL`이 우연히 설정돼 있으면 실제 지점 메일함으로 발송될 위험이 있어, `build_email_body()` 등 순수 함수만 직접 호출해 결과 문자열만 검사하는 방식으로 안전하게 검증함
 
+## 후속 — 선택 기간 공휴일 위젯 (2026-08-05 추가)
+
+카드 뱃지만으로는 "지금 조회 중인 기간에 공휴일이 뭐가 있는지"를 한눈에 보기 어렵다는 피드백으로, 리스트 상단(`.lhead`와 `.rtabs` 사이)에 선택한 기간(`st`~`ed`)의 공휴일을 전부 나열하는 스트립을 추가했다. 조회된 공연이 0건이어도 항상 표시됨(연휴 뱃지와 달리 검색 결과와 무관하게 날짜 범위 자체가 기준).
+
+**main.py**: `/api/holidays` 응답에 병합된 `periods`와 별개로 개별 `holidays`(날짜+이름) 필드를 추가(순수 추가, 기존 `periods` 응답 형태 불변).
+
+**index.html**: `holidayList`(원본 공휴일 배열) 신설, `yearsInRange(st,ed)`로 검색창 날짜 범위 자체의 연도를 계산(조회 결과가 0건이어도 정확해야 하므로 `collectYears(items)`와 별개로 필요), `renderHolidayStrip()`이 범위 내 공휴일을 칩 형태로 렌더링. `doSearch()`에서 공연 0건 조기 반환보다 **앞에서** 공휴일 로드/렌더가 실행되도록 순서 조정.
+
+**검증 중 발견한 실제 버그 2건 (둘 다 수정 완료)**
+1. `main.py`의 예외 로그 `print(f"🚨 Supabase 조회 실패...")`가 Windows 로컬 콘솔(cp949)에서 이모지 인코딩 실패로 크래시 → `/api/kopis`가 500을 반환하는 문제. Render(Linux)에서는 로케일이 달라 발생한 적 없었던 것으로 보이나, **로컬 Windows 개발 시엔 재현됨**. 이번엔 서버 실행 시 `PYTHONIOENCODING=utf-8`로 우회했을 뿐 main.py 자체는 고치지 않음 — 코드 수정이 필요하면 별도 논의 필요.
+2. 프론트 `loadedHolidayYears`가 **연도만으로 캐싱**돼서, `srv-url`(서버 주소)을 바꿔도 이미 로드된 연도는 새 서버로 재요청하지 않는 버그. `holidaysBase`(마지막으로 로드한 base URL)를 추적해서 base가 바뀌면 `holidayPeriods`/`holidayList`/`loadedHolidayYears`를 전부 초기화하도록 수정. 실사용 시나리오(서버 URL을 프로덕션↔로컬로 바꿔가며 쓰는 것)에서 실제로 재현되는 버그였음.
+
+**브라우저 검증**: 로컬 서버(uvicorn) + 별도 정적 파일 서버(index.html 서빙용)를 띄우고 claude-in-chrome으로 실제 클릭/입력 후 확인. 08/05~08/20 범위 검색 시 "🎌 선택 기간 공휴일 [08/15 광복절] [08/17 대체공휴일(광복절)]" 정상 표시, 08/21~09/05(공휴일 없는 구간)엔 "선택 기간 중 공휴일 없음" 정상 표시, 8/15 공연 카드엔 기존 "🎌 연휴" 뱃지도 함께 정상 표시됨을 스크린샷으로 확인.
+
 ## 로컬 개발 시 참고
 
 - Windows에서 `[Environment]::SetEnvironmentVariable("KASI_API_KEY","<Decoding 키>","User")`로 영구 등록 가능하나, 이미 떠 있는 셸/프로세스에는 즉시 반영 안 됨(레지스트리 값과 프로세스 상속 환경변수가 별개). 확인은 `[Environment]::GetEnvironmentVariable("KASI_API_KEY","User")`로, 실제 실행 시엔 같은 커맨드라인에서 `$env:KASI_API_KEY = [Environment]::GetEnvironmentVariable(...)`로 재주입해야 함.
@@ -47,4 +61,5 @@
 ## 범위 밖 (Phase 2/3로 이관)
 
 - 전국 행사/축제 연동 → [02-festival-integration.md](./02-festival-integration.md)
-- "탭 + 지도 마커" UI, "다가오는 공휴일" 상단 위젯
+- "탭 + 지도 마커" UI (Phase 2용)
+- ~~"다가오는 공휴일" 상단 위젯~~ → "선택 기간 공휴일" 스트립으로 2026-08-05에 구현 완료(위 섹션 참고)

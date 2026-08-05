@@ -404,14 +404,19 @@ def enrich_insight_with_holiday(insight: dict, prf: dict) -> dict:
 
 @app.get("/api/holidays")
 def get_holiday_periods(year: int):
-    """지정 연도의 연휴 구간을 반환합니다 (프론트엔드 카드 뱃지용)."""
-    periods = compute_holiday_periods(get_holidays(year))
+    """지정 연도의 연휴 구간(카드 뱃지용) + 개별 공휴일 목록(선택 기간 표시용)을 반환합니다."""
+    raw = get_holidays(year)
+    periods = compute_holiday_periods(raw)
     return {
         "status": "success",
         "year": year,
         "periods": [
             {"start": p["start"].strftime("%Y%m%d"), "end": p["end"].strftime("%Y%m%d")}
             for p in periods
+        ],
+        "holidays": [
+            {"date": h["date"].strftime("%Y%m%d"), "name": h["name"]}
+            for h in raw if h["is_holiday"]
         ],
     }
 
