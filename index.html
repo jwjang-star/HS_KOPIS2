@@ -231,6 +231,12 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 .rtab:hover{border-color:#378ADD;color:#185FA5}
 .rtab.on{background:#E6F1FB;color:#185FA5;border-color:#B5D4F4}
 
+.stabs{display:flex;gap:6px;padding:8px 13px 0;flex-shrink:0}
+.stab{font-size:11px;padding:4px 14px;border-radius:20px;border:0.5px solid var(--color-border-tertiary);cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);font-weight:500}
+.stab:hover{border-color:#378ADD;color:#185FA5}
+.stab.on{background:#1A2940;color:#fff;border-color:#1A2940}
+.ctrl-festival-disabled{opacity:.4;pointer-events:none}
+
 /* ─────────────────────────────────────────────
    [변경5] 공연 리스트 max-height 비율 조정
    기존: max-height:370px
@@ -370,7 +376,7 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
   <option value="02">공연중</option>
   <option value="03">공연완료</option>
 </select>
-<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary);cursor:pointer;user-select:none;white-space:nowrap;">
+<label id="lbl-only-new" style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary);cursor:pointer;user-select:none;white-space:nowrap;">
   <input type="checkbox" id="chk-only-new" onchange="renderList()" style="width:15px;height:15px;cursor:pointer;">🆕 신규만
 </label>
 <button class="btn-go" id="btn-go" onclick="doSearch()">
@@ -472,6 +478,10 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
         <span class="ltitle" id="ltitle">공연 목록</span>
         <span class="lcnt" id="lcnt">0건</span>
       </div>
+      <div class="stabs">
+        <span class="stab on" data-src="perf" onclick="pickSource(this)">🎭 공연</span>
+        <span class="stab" data-src="festival" onclick="pickSource(this)">🎪 축제</span>
+      </div>
       <div class="holiday-strip" id="holiday-strip" style="display:none;"></div>
       <div class="rtabs">
         <span class="rtab on" data-c="" data-n="전체" onclick="pickRegion(this)">전체</span>
@@ -494,7 +504,7 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
         <span class="rtab" data-c="50" data-n="제주" onclick="pickRegion(this)">제주</span>
       </div>
 
-      <div style="display:flex;align-items:center;padding:8px 13px;border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div id="row-select-all" style="display:flex;align-items:center;padding:8px 13px;border-bottom:0.5px solid var(--color-border-tertiary);">
         <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary);cursor:pointer;user-select:none;white-space:nowrap;">
           <input type="checkbox" id="chk-select-all" onchange="toggleSelectAll(this)" style="width:15px;height:15px;cursor:pointer;">전체 선택
         </label>
@@ -896,6 +906,51 @@ function buildMap(){
   // ── 3단계 끝 ──
 }
 
+/* ══════════════════════════════════════════════
+   축제 보조마커 (Phase 3) — 지역별 축제 건수를 작은 배지로 표시.
+   실좌표 투영이 없는 손그림 지도라 위경도를 직접 못 꽂으므로,
+   기존 metro-dot처럼 지역 단위 집계 점으로 표시함.
+   탭을 '공연'으로 돌려도 유지됨(요청: "지도는 항상 같이 보여주기") —
+   doFestivalSearch()가 성공할 때만 갱신되고, doSearch()에서는 안 건드림.
+══════════════════════════════════════════════ */
+const FESTIVAL_DOT_COLOR = '#E8820C';
+
+function renderFestivalDots(){
+  const svg = document.getElementById('kmap');
+  svg.querySelectorAll('.festival-marker').forEach(el => el.remove());
+  if(!lastFestivals.length) return;
+
+  const counts = {};
+  lastFestivals.forEach(f => { if(f.region) counts[f.region] = (counts[f.region] || 0) + 1; });
+
+  Object.entries(counts).forEach(([code, count]) => {
+    const pos = LABEL_POS[code];
+    if(!pos) return;
+
+    const cx = pos.x + 13, cy = pos.y - 11;
+    const r  = count >= 10 ? 9 : 7;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','festival-marker');
+    g.setAttribute('style','pointer-events:none');  // 아래 지역 클릭이 막히지 않게
+
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', r);
+    dot.setAttribute('fill', FESTIVAL_DOT_COLOR);
+    dot.setAttribute('stroke', '#fff'); dot.setAttribute('stroke-width', '1.2');
+    dot.setAttribute('filter', 'url(#dot-shadow)');
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+    label.setAttribute('x', cx); label.setAttribute('y', cy);
+    label.setAttribute('text-anchor','middle'); label.setAttribute('dominant-baseline','middle');
+    label.setAttribute('font-size','8'); label.setAttribute('font-weight','700'); label.setAttribute('fill','#fff');
+    label.textContent = count > 99 ? '99+' : String(count);
+
+    g.appendChild(dot); g.appendChild(label);
+    svg.appendChild(g);
+  });
+}
+
 // path의 bbox 중심 계산 (LABEL_POS fallback용)
 function getCenter(d){
   const nums = (d.match(/-?\d+\.?\d*/g)||[]).map(Number);
@@ -995,6 +1050,28 @@ let totalCount  = 0;   // 서버가 내려준 전체 건수 — 다음 버튼 �
 const PAGE_SIZE = 100;
 
 /* ══════════════════════════════════════════════
+   소스 전환 (공연 | 축제) — Phase 3
+   리스트는 탭으로 전환하되, 지도 위 축제 보조마커는 탭과 무관하게
+   lastFestivals가 채워진 이후엔 계속 표시됨(요청사항: "지도는 항상 같이 보여주기")
+══════════════════════════════════════════════ */
+let sourceMode    = 'perf';  // 'perf' | 'festival'
+let lastFestivals = [];      // 축제 조회 결과 캐싱 (lastItems와 대응)
+
+function pickSource(el){
+  sourceMode = el.dataset.src;
+  document.querySelectorAll('.stab').forEach(t => t.classList.toggle('on', t.dataset.src === sourceMode));
+
+  // 공연 전용 컨트롤(장르/상태/신규만/선택발송)은 축제 모드에선 의미가 없어 비활성화만 함(숨기지 않음)
+  const isFestival = sourceMode === 'festival';
+  ['sel-genre','sel-state','lbl-only-new','row-select-all','btn-send'].forEach(id => {
+    document.getElementById(id)?.classList.toggle('ctrl-festival-disabled', isFestival);
+  });
+
+  currentPage = 1; totalCount = 0;
+  doSearch();
+}
+
+/* ══════════════════════════════════════════════
    API URL 빌더
 ══════════════════════════════════════════════ */
 function buildUrl(){
@@ -1008,6 +1085,15 @@ function buildUrl(){
   if(genre)   p.set('shcate', genre);
   if(state)   p.set('prfstate', state);
   return `${base}/api/kopis?${p}`;
+}
+
+function buildFestivalUrl(){
+  const base = document.getElementById('srv-url').value.trim().replace(/\/$/,'');
+  const st   = document.getElementById('st').value.replace(/-/g,'');
+  const ed   = document.getElementById('ed').value.replace(/-/g,'');
+  const p = new URLSearchParams({stdate:st, eddate:ed});
+  if(selCode) p.set('signgucode', selCode);
+  return `${base}/api/festivals?${p}`;
 }
 
 /* 페이지 이동 */
@@ -1159,6 +1245,30 @@ function createPerfCard(item){
   return card;
 }
 
+/* 축제 카드 1개 생성 — createPerfCard()와 완전히 분리된 별도 함수(필드 구조가 다름).
+   선택/발송 기능은 아직 없음(이메일 연동은 범위 밖) — 체크박스 없이 정보 열람용만. */
+function createFestivalCard(item){
+  const card = document.createElement('div');
+  card.className = 'pitem';
+  card.setAttribute('role','button');
+  card.innerHTML = `
+    <div class="poster"><i class="ti ti-ferris-wheel" style="font-size:15px;color:var(--color-text-tertiary)" aria-hidden="true"></i></div>
+    <div class="pinfo">
+      <div class="ptitle" title="${item.name}">${item.name}</div>
+      <div class="pvenue">${item.place || item.address || '–'}</div>
+      <div class="pdate">${item.start_date} ~ ${item.end_date}</div>
+      <div class="ptags">
+        <span class="tag">🎪 ${REGION_LABEL[item.region] || '지역미상'}</span>
+        ${isHolidayOverlap({prfpdfrom:item.start_date, prfpdto:item.end_date})?'<span class="tag tag-holiday">🎌 연휴</span>':''}
+      </div>
+    </div>`;
+
+  card.addEventListener('click', () => {
+    alert(`[${item.name}]\n장소: ${item.place || item.address || '정보 없음'}\n기간: ${item.start_date} ~ ${item.end_date}\n${item.content ? '\n'+item.content : ''}`);
+  });
+  return card;
+}
+
 /* ══════════════════════════════════════════════
    리스트 렌더링 (마지막 조회 결과 캐싱 → 신규만 필터는 재조회 없이 동작)
    ※ 재조회 시 백엔드가 이미 INSERT하여 is_new가 false로 바뀌므로,
@@ -1215,9 +1325,68 @@ function toggleSelectAll(el){
 }
 
 /* ══════════════════════════════════════════════
+   축제 조회 — doSearch()와 완전히 분리된 별도 함수(응답 셰이프가 다름).
+   전량 반환 방식이라 페이지네이션은 쓰지 않음.
+══════════════════════════════════════════════ */
+async function doFestivalSearch(){
+  const url    = buildFestivalUrl();
+  const plist  = document.getElementById('plist');
+  const banner = document.getElementById('err-banner');
+
+  document.getElementById('ltitle').textContent = `${REGION_LABEL[selCode]||'전체'} · 축제`;
+  document.getElementById('s-region').textContent = REGION_LABEL[selCode]||'전체';
+  document.getElementById('s-genre').textContent  = '축제';
+  document.getElementById('s-total').textContent  = '–';
+  document.getElementById('lcnt').textContent     = '0건';
+  banner.style.display = 'none';
+  document.getElementById('btn-go').disabled = true;
+  plist.innerHTML = '<div class="spin-wrap"><div class="spin"></div>불러오는 중...</div>';
+  updatePagination(0);
+
+  try{
+    const res  = await fetch(url, {signal:AbortSignal.timeout(15000)});
+    if(!res.ok) throw{type:'http', status:res.status};
+    const json = await res.json();
+    if(json.status !== 'success') throw{type:'api', detail:json.detail||'응답 오류'};
+
+    const items = json.data || [];
+    lastFestivals = items;
+    totalCount = json.total_count || items.length;
+    document.getElementById('s-total').textContent = totalCount;
+    document.getElementById('lcnt').textContent    = `${totalCount}건`;
+
+    // 선택 기간 공휴일 스트립은 축제 모드에서도 동일하게 표시
+    const stVal = document.getElementById('st').value;
+    const edVal = document.getElementById('ed').value;
+    await loadHolidays(yearsInRange(stVal, edVal));
+    renderHolidayStrip(stVal, edVal);
+
+    renderFestivalDots();  // 지도 보조마커 갱신 — 탭을 다시 '공연'으로 바꿔도 유지됨
+
+    if(!items.length){
+      plist.innerHTML = '<div class="smsg"><i class="ti ti-calendar-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>해당 조건의 축제가 없습니다</div>';
+      return;
+    }
+
+    plist.innerHTML = '';
+    items.forEach(item => plist.appendChild(createFestivalCard(item)));
+
+  }catch(err){
+    const isNet = err instanceof TypeError || err?.name === 'AbortError';
+    plist.innerHTML = `<div class="smsg"><i class="ti ti-server-off" style="font-size:26px;display:block;margin-bottom:8px;opacity:.35" aria-hidden="true"></i>${isNet?'FastAPI 서버에 연결할 수 없습니다':'API 응답 오류'}<br><span style="font-size:10px;color:var(--color-text-tertiary)">${isNet?'uvicorn main:app --reload':'HTTP '+(err?.status||'')}</span></div>`;
+    banner.style.display = 'block';
+    banner.textContent   = isNet ? '서버 실행: uvicorn main:app --reload' : '서버 오류: '+(err?.status||err?.detail||'');
+    document.getElementById('s-total').textContent = '–';
+  }finally{
+    document.getElementById('btn-go').disabled = false;
+  }
+}
+
+/* ══════════════════════════════════════════════
    메인 조회
 ══════════════════════════════════════════════ */
 async function doSearch(){
+  if(sourceMode === 'festival') return doFestivalSearch();
   const url    = buildUrl();
   const genre  = document.getElementById('sel-genre').value;
   const plist  = document.getElementById('plist');

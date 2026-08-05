@@ -4,6 +4,7 @@ import requests
 import xml.etree.ElementTree as ET
 import csv
 import os
+import re
 from datetime import datetime, timezone, timedelta
 
 # 🌟 Pydantic 및 Typing (선택 발송용 그릇)
@@ -419,6 +420,129 @@ def get_holiday_periods(year: int):
             for h in raw if h["is_holiday"]
         ],
     }
+
+
+# 🔹 [Phase 2] 전국 축제 연동 — 전국문화축제표준데이터 (data.go.kr 15013104)
+# ⚠️ 기존 로직 무수정. Supabase 새 테이블도 만들지 않음(NEW 배지를 안 쓰기로 함 —
+#    분기 갱신 데이터에 KOPIS식 신규판별을 붙이면 재시작마다 전체가 NEW로 뜨는
+#    문제가 생기고, 이를 막으려면 영속 저장소가 필요해져 RLS 리스크가 되돌아옴)
+FESTIVAL_API_KEY = os.environ.get("FESTIVAL_API_KEY", "")
+FESTIVAL_URL = "https://api.data.go.kr/openapi/tn_pubr_public_cltur_fstvl_api"  # api.data.go.kr (s 없음) 주의
+
+FESTIVAL_REGION_MAP = {
+    "서울특별시": "11", "서울": "11", "부산광역시": "26", "부산": "26",
+    "대구광역시": "27", "대구": "27", "인천광역시": "28", "인천": "28",
+    "광주광역시": "29", "광주": "29", "대전광역시": "30", "대전": "30",
+    "울산광역시": "31", "울산": "31",
+    "세종특별자치시": "36", "세종시": "36", "세종": "36",
+    "경기도": "41", "경기": "41",
+    "강원특별자치도": "51", "강원도": "51", "강원": "51",
+    "충청북도": "43", "충북": "43", "충청남도": "44", "충남": "44",
+    "전북특별자치도": "45", "전라북도": "45", "전북": "45",
+    "전라남도": "46", "전남": "46",
+    "경상북도": "47", "경북": "47", "경상남도": "48", "경남": "48",
+    "제주특별자치도": "50", "제주도": "50", "제주": "50",
+}
+_REGION_KEYS_BY_LEN = sorted(FESTIVAL_REGION_MAP, key=len, reverse=True)
+
+
+def guess_region(insttNm: str, address: str) -> str:
+    """insttNm(담당 지자체명, 예: '경상북도 영양군')을 1순위로, 실패 시 주소로 폴백."""
+    for src in (insttNm, address):
+        s = (src or "").strip()
+        for key in _REGION_KEYS_BY_LEN:
+            if s.startswith(key):
+                return FESTIVAL_REGION_MAP[key]
+    return ""
+
+
+def fetch_festivals_from_std_api() -> list:
+    """전국문화축제표준데이터 전량(약 1,300건)을 페이지네이션으로 가져옵니다.
+    numOfRows는 API 제약상 최대 1000까지만 허용됨. 실패 시 그때까지 모은 결과를 버리고 빈 리스트 반환."""
+    if not FESTIVAL_API_KEY:
+        return []
+    page_size = 1000
+    items = []
+    try:
+        for page in range(1, 10):  # 안전장치: 최대 10페이지(=10,000건)까지만
+            res = requests.get(FESTIVAL_URL, params={
+                "serviceKey": FESTIVAL_API_KEY, "pageNo": page, "numOfRows": page_size, "type": "xml"
+            }, timeout=20)
+            res.raise_for_status()
+            root = ET.fromstring(res.content)
+            if root.findtext('.//resultCode') != '00':
+                print(f"[festival] API 응답 오류: {root.findtext('.//resultMsg')}")
+                return []
+            rows = root.findall('.//item')
+            items.extend(rows)
+            total = int(root.findtext('.//totalCount') or 0)
+            if len(rows) < page_size or len(items) >= total:
+                break
+        return items
+    except Exception as e:
+        print(f"[festival] fetch 실패: {e}")
+        return []
+
+
+def normalize_festival(item) -> dict:
+    def g(tag): return (item.findtext(tag) or "").strip()
+    address = g('rdnmadr') or g('lnmadr')
+    return {
+        "name": g('fstvlNm'), "place": g('opar'),
+        "start_date": g('fstvlStartDate'), "end_date": g('fstvlEndDate'),
+        "content": g('fstvlCo'), "address": address,
+        "lat": g('latitude') or None, "lng": g('longitude') or None,
+        "region": guess_region(g('insttNm'), address),
+        "data_ref_date": g('referenceDate'),
+    }
+
+
+_festival_cache: list = []
+_festival_cached_at = None
+_FESTIVAL_CACHE_TTL = timedelta(hours=24)
+
+
+def get_festivals_raw() -> list:
+    """정규화된 축제 목록(24시간 in-memory 캐시). 실패 시 이전 캐시 유지."""
+    global _festival_cache, _festival_cached_at
+    stale = _festival_cached_at is None or (datetime.now() - _festival_cached_at) > _FESTIVAL_CACHE_TTL
+    if stale:
+        raw = fetch_festivals_from_std_api()
+        if raw:
+            _festival_cache = [normalize_festival(r) for r in raw]
+            _festival_cached_at = datetime.now()
+    return _festival_cache
+
+
+def _digits(s: str) -> str:
+    return re.sub(r"\D", "", s or "")
+
+
+def _period_overlaps(start_s, end_s, q_start, q_end) -> bool:
+    s, e = _digits(start_s), _digits(end_s)
+    if len(s) != 8 or len(e) != 8:
+        return True
+    return s <= _digits(q_end) and e >= _digits(q_start)
+
+
+@app.get("/api/festivals")
+def get_festival_list(stdate: str = "", eddate: str = "", signgucode: str = ""):
+    items = get_festivals_raw()
+    if signgucode:
+        items = [it for it in items if it["region"] == signgucode]
+    if stdate and eddate:
+        items = [it for it in items if _period_overlaps(it["start_date"], it["end_date"], stdate, eddate)]
+    return {"status": "success", "total_count": len(items), "data": items}
+
+
+@app.get("/api/festivals/sync")
+def force_festival_sync():
+    """캐시 무시하고 즉시 재수집(검증/수동 새로고침용)."""
+    global _festival_cached_at
+    _festival_cached_at = None
+    items = get_festivals_raw()
+    unmatched = sum(1 for it in items if not it["region"])
+    return {"status": "success", "total": len(items), "unmatched_region": unmatched}
 
 
 # 🔹 [Phase 4] HTML 이메일 본문 생성 함수 (수익 최적화 가이드 템플릿)
