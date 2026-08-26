@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 
 # 🌟 Pydantic 및 Typing (선택 발송용 그릇)
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 # 🌟 Supabase 클라이언트 라이브러리
 from supabase import create_client, Client
@@ -29,10 +29,14 @@ app.add_middleware(
 API_KEY = "1c235bf039644a5da499d3dfab103750"
 KOPIS_URL = "http://www.kopis.or.kr/openApi/restful/pblprfr"
 
-# Supabase 연결 설정 (Render 환경변수에 꼭 등록해 주세요!)
+# Supabase 연결 설정 (Render 환경변수에 꼭 등록해 주세요! — service_role 키 사용, 코드에는 하드코딩하지 않음)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://bnicadeeglrnymggybig.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_srOFgWBdXvCInVC6dcGDrA_tz2xPkmy")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+try:
+    supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
+except Exception as e:
+    print(f"🚨 Supabase 클라이언트 생성 실패: {e}")
+    supabase = None
 
 # 공휴일(특일) API — data.go.kr 한국천문연구원_특일 정보 (Phase 1: 연휴 가산점)
 KASI_API_KEY = os.environ.get("KASI_API_KEY", "")
