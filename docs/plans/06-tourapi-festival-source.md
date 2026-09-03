@@ -1,6 +1,7 @@
 # Phase 6 — 축제 2차 소스(TourAPI) + 수동 보완
 
-**상태: 구현 + 로컬 검증 완료 (2026-09-03). 프로덕션 배포 대기 — Render에 `TOUR_API_KEY` 등록 필요.**
+**상태: 구현 + 프로덕션 배포·라이브 확인 완료 (2026-09-03, 커밋 `9597ddd`, `master`==`main`).**
+프로덕션 `/api/festivals/sync` → `{total: 1734, supplemental: 1, std: 1305, tour: 668, tour_added: 505, unmatched_region: 1}`. 9/5 서울 필터에 한화 서울세계불꽃축제 2026 노출 확인.
 
 ## 배경
 
@@ -53,12 +54,13 @@
 - 회귀: `/api/kopis`·`/api/holidays`·`/health` 정상, 그리드 뷰·페이징·공연/축제 탭·2단 날짜 리스트 정상. 콘솔·서버 에러 0.
 - 키 없이 기동 시: `sync` = `{std: 1305, tour: 0, tour_added: 0}` — 기존과 100% 동일(회귀 없음, 사전 검증).
 
-## 배포
+## 배포 (2026-09-03 완료)
 
-1. **Render 대시보드 Environment에 `TOUR_API_KEY` 추가** — 값은 `FESTIVAL_API_KEY`와 **동일**(같은 data.go.kr 일반 인증키. 사용자가 "한국관광공사_국문 관광정보 서비스_GW" 활용신청 완료 → 같은 키가 KorService2에도 통함). Decoding 값, 끝 공백·개행 없이([03] 참고).
-2. `git push origin master:main` → Render 자동 재배포(백엔드 변경).
-3. 프로덕션 `/api/festivals/sync`로 `tour` 카운트(>0) 확인, 캘린더 9/5에서 불꽃축제 확인.
-   - `TOUR_API_KEY` 안 넣고 배포해도 안전(기존 동작 유지) — 넣어야 TourAPI 소스가 켜짐.
+1. `git push origin master:main` → Render 자동 재배포. `main` `a2620af`..`9597ddd`.
+2. **Render Environment `TOUR_API_KEY` 추가** — 값은 `FESTIVAL_API_KEY`와 **동일**(같은 data.go.kr 일반 인증키. "한국관광공사_국문 관광정보 서비스_GW" 활용신청 완료 → 같은 키가 KorService2에도 통함).
+   - ⚠️ **1차 시도에서 Encoding 형태(`...NJ%2BopWrI...Mw%3D%3D`)를 넣어 `tour: 0` (이중인코딩 → SERVICE_KEY_IS_NOT_REGISTERED_ERROR).** `docs/plans/03`의 그 사고 재발. Decoding 형태(`%` 없이 `+`/`==`)로 교체 → 정상. 제일 확실한 건 `FESTIVAL_API_KEY` 값 그대로 복사.
+3. 재배포 후 `/api/festivals/sync` → `tour: 668, tour_added: 505` 확인. 9/5 서울 필터에 한화 불꽃축제 확인.
+   - `TOUR_API_KEY` 없이 배포해도 안전(수동 보완 1건 + 표준데이터는 그대로 동작). 키가 있어야 TourAPI 505건이 켜짐.
 
 ## 로컬/운영 참고
 
