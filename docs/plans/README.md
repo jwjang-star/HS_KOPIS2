@@ -11,6 +11,7 @@ KOPIS 공연 데이터를 지역별로 조회해서 지점 주변 숙박 수요�
 | 3 | UI 통합 (리스트 상단 "공연\|축제" 탭 + 지도 보조마커) | ✅ 구현+브라우저 검증+배포 완료 (2026-08-05) |
 | 4 | 캘린더 대시보드 (최상위 탭으로 지도·리스트 뷰와 전환, 공연+축제+공휴일을 한 달력에) | ✅ 구현 + 날짜 리스트 2단화 + **프로덕션 배포·라이브 확인 완료** (2026-09-03) |
 | 5 | Supabase 보안 강화 (RLS 잠금 + 키 로테이션, 저장소 Public 확인 대응) | ✅ 조치+검증 완료 (2026-08-26) |
+| 6 | 축제 2차 소스 — TourAPI(searchFestival2) 병합 + 수동 보완(한화 서울세계불꽃축제) | 🔧 구현 + 로컬 검증 완료 (2026-09-03), **배포 대기 — Render `TOUR_API_KEY` 등록 필요** |
 
 ## 문서 목록
 
@@ -19,6 +20,7 @@ KOPIS 공연 데이터를 지역별로 조회해서 지점 주변 숙박 수요�
 - [03-render-env-var-incident.md](./03-render-env-var-incident.md) — 2026-08-05 Render 환경변수 설정 중 겪은 실제 사고와 교훈
 - [04-calendar-dashboard.md](./04-calendar-dashboard.md) — Phase 4 캘린더 대시보드 설계 + 구현 + 배포 기록 (2026-09-03 라이브)
 - [05-supabase-security-hardening.md](./05-supabase-security-hardening.md) — Phase 5 Supabase RLS 잠금 + 키 로테이션 조치 기록 (완료)
+- [06-tourapi-festival-source.md](./06-tourapi-festival-source.md) — Phase 6 축제 2차 소스(TourAPI) + 수동 보완 (구현·로컬검증 완료, 배포 대기)
 
 ## 작업 원칙 (모든 Phase 공통)
 

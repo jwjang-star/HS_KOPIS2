@@ -433,6 +433,18 @@ def get_holiday_periods(year: int):
 FESTIVAL_API_KEY = os.environ.get("FESTIVAL_API_KEY", "")
 FESTIVAL_URL = "https://api.data.go.kr/openapi/tn_pubr_public_cltur_fstvl_api"  # api.data.go.kr (s 없음) 주의
 
+# 🔹 2차 소스: 한국관광공사 TourAPI 4.0 searchFestival2
+#    전국문화축제표준데이터는 지자체 등록 "문화축제"만 담아 한화 서울세계불꽃축제 같은
+#    민간 주최·대형 행사가 누락됨. TourAPI(관광 진흥 DB)로 보강. 키 없으면 조용히 미사용.
+#    ⚠️ apis.data.go.kr (s 있음), B551011 — 표준데이터 도메인과 다름.
+TOUR_API_KEY = os.environ.get("TOUR_API_KEY", "")
+TOUR_API_URL = "http://apis.data.go.kr/B551011/KorService2/searchFestival2"
+_TOUR_AREACODE = {  # TourAPI areaCode → KOPIS signgucode (주소 파싱 실패 시 폴백)
+    "1": "11", "2": "28", "3": "30", "4": "27", "5": "29", "6": "26", "7": "31",
+    "8": "36", "31": "41", "32": "51", "33": "43", "34": "44", "35": "47",
+    "36": "48", "37": "45", "38": "46", "39": "50",
+}
+
 FESTIVAL_REGION_MAP = {
     "서울특별시": "11", "서울": "11", "부산광역시": "26", "부산": "26",
     "대구광역시": "27", "대구": "27", "인천광역시": "28", "인천": "28",
@@ -488,6 +500,57 @@ def fetch_festivals_from_std_api() -> list:
         return []
 
 
+def fetch_festivals_from_tourapi() -> list:
+    """TourAPI 4.0 searchFestival2 — 올해(1/1 기준) 진행/예정 축제 목록(dict).
+    키 없거나 실패 시 빈 리스트 → 기존 표준데이터만으로 정상 동작."""
+    if not TOUR_API_KEY:
+        return []
+    year = datetime.now().year
+    items = []
+    try:
+        for page in range(1, 26):  # 안전장치: 최대 25페이지(2,500건)
+            res = requests.get(TOUR_API_URL, params={
+                "serviceKey": TOUR_API_KEY, "MobileOS": "ETC", "MobileApp": "HSKOPIS",
+                "_type": "json", "numOfRows": 100, "pageNo": page,
+                "arrange": "C", "eventStartDate": f"{year}0101",
+            }, timeout=20)
+            try:
+                body = res.json()
+            except ValueError:
+                print(f"[tourapi] 응답이 JSON 아님 (HTTP {res.status_code}): {res.text[:200]}")
+                return []
+            resp = body.get("response")
+            if not resp:  # data.go.kr 에러 봉투 {"OpenAPI_ServiceResponse": {"cmmMsgHeader": {...}}}
+                hdr = (body.get("OpenAPI_ServiceResponse") or {}).get("cmmMsgHeader", {})
+                print(f"[tourapi] API 오류: {hdr.get('errMsg')} / {hdr.get('returnAuthMsg')}")
+                return []
+            hdr = resp.get("header") or {}
+            if hdr.get("resultCode") not in ("0000", "00"):
+                print(f"[tourapi] resultCode={hdr.get('resultCode')} msg={hdr.get('resultMsg')}")
+                return []
+            b = resp.get("body") or {}
+            raw = b.get("items") or ""
+            if not raw:  # 결과 0건이면 items가 빈 문자열
+                break
+            page_items = raw.get("item") or []
+            if isinstance(page_items, dict):
+                page_items = [page_items]
+            items.extend(page_items)
+            total = int(b.get("totalCount") or 0)
+            if len(page_items) < 100 or len(items) >= total:
+                break
+        return items
+    except Exception as e:
+        print(f"[tourapi] fetch 실패: {e}")
+        return []
+
+
+def _fmt_date(s: str) -> str:
+    """'20260905' → '2026-09-05' (표준데이터 포맷과 통일). 8자리 아니면 원본 유지."""
+    d = re.sub(r"\D", "", s or "")
+    return f"{d[:4]}-{d[4:6]}-{d[6:8]}" if len(d) == 8 else (s or "")
+
+
 def normalize_festival(item) -> dict:
     def g(tag): return (item.findtext(tag) or "").strip()
     address = g('rdnmadr') or g('lnmadr')
@@ -501,20 +564,85 @@ def normalize_festival(item) -> dict:
     }
 
 
+def normalize_festival_tourapi(item: dict) -> dict:
+    """TourAPI item(dict)을 normalize_festival()과 완전히 동일한 키 셰이프로 변환."""
+    def g(k): return (item.get(k) or "").strip()
+    addr = g("addr1")
+    return {
+        "name": g("title"), "place": addr,
+        "start_date": _fmt_date(g("eventstartdate")), "end_date": _fmt_date(g("eventenddate")),
+        "content": "", "address": addr,
+        "lat": g("mapy") or None, "lng": g("mapx") or None,  # TourAPI: mapy=위도, mapx=경도
+        "region": guess_region("", addr) or _TOUR_AREACODE.get(g("areacode"), ""),
+        "data_ref_date": g("modifiedtime")[:8],
+    }
+
+
+# 표준데이터·TourAPI 어디에도 최신 일정이 없는 대형 축제 수동 보완.
+# 공식 발표 후 날짜만 갱신하면 됨. API가 해당 항목을 정상 제공하기 시작하면
+# 병합 시 이 항목이 우선(dedup)되므로 중복 없이 자연스럽게 유지 → 검증 후 이 리스트에서 제거.
+SUPPLEMENTAL_FESTIVALS = [
+    {
+        # 한화 주최(민간)라 전국문화축제표준데이터에 없음. TourAPI엔 항목(contentid 631268)이
+        # 있으나 전년도 일정(2025-09-27)으로 고정돼 searchFestival2에서 누락됨.
+        # 2026 일정: 한화 공식 발표(2026-08-06) — 9/4 전야제, 9/5 불꽃쇼, 여의도 한강공원.
+        "name": "한화와 함께하는 서울세계불꽃축제 2026",
+        "place": "여의도 한강공원 일대",
+        "start_date": "2026-09-04", "end_date": "2026-09-05",
+        "content": "", "address": "서울특별시 영등포구 여의동로 330",
+        "lat": "37.5285", "lng": "126.9327",
+        "region": "11", "data_ref_date": "20260903",
+    },
+]
+
 _festival_cache: list = []
 _festival_cached_at = None
+_festival_stats = {"supplemental": 0, "std": 0, "tour": 0, "tour_added": 0}
 _FESTIVAL_CACHE_TTL = timedelta(hours=24)
 
 
+def _dedup_name(name: str) -> str:
+    """'제30회 무주반딧불축제' / '2026년 무주반딧불축제' → '무주반딧불축제' 핵심만."""
+    n = re.sub(r"^\s*제?\s*\d+\s*회\s*", "", name or "")
+    n = re.sub(r"20\d{2}\s*년?\s*", "", n)
+    return re.sub(r"[^가-힣0-9a-z]", "", n.lower())
+
+
+def _merge_festivals(*sources: list):
+    """앞 소스 우선. (핵심이름, 시작연월) 키가 이미 나왔으면 스킵 —
+    소스 간 중복 + 소스 내 중복(표준데이터의 동일 축제 재등록 오류 포함) 모두 정리.
+    반환: (병합 리스트, 소스별 실제 추가 건수)."""
+    seen, merged, kept = set(), [], []
+    for src in sources:
+        n0 = len(merged)
+        for f in src:
+            key = (_dedup_name(f["name"]), _digits(f["start_date"])[:6])
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(f)
+        kept.append(len(merged) - n0)
+    return merged, kept
+
+
+def _rebuild_festival_cache() -> None:
+    """세 소스(수동 보완 → 표준데이터 → TourAPI) fetch·정규화·병합·캐시.
+    표준·TourAPI 둘 다 빈 결과일 때만 이전 캐시 유지."""
+    global _festival_cache, _festival_cached_at, _festival_stats
+    std = [normalize_festival(r) for r in fetch_festivals_from_std_api()]
+    tour = [normalize_festival_tourapi(r) for r in fetch_festivals_from_tourapi()]
+    merged, kept = _merge_festivals(SUPPLEMENTAL_FESTIVALS, std, tour)
+    if std or tour:
+        _festival_cache = merged
+        _festival_cached_at = datetime.now()
+        _festival_stats = {"supplemental": kept[0], "std": len(std), "tour": len(tour), "tour_added": kept[2]}
+
+
 def get_festivals_raw() -> list:
-    """정규화된 축제 목록(24시간 in-memory 캐시). 실패 시 이전 캐시 유지."""
-    global _festival_cache, _festival_cached_at
+    """정규화된 축제 목록(표준데이터 + TourAPI 병합, 24시간 in-memory 캐시)."""
     stale = _festival_cached_at is None or (datetime.now() - _festival_cached_at) > _FESTIVAL_CACHE_TTL
     if stale:
-        raw = fetch_festivals_from_std_api()
-        if raw:
-            _festival_cache = [normalize_festival(r) for r in raw]
-            _festival_cached_at = datetime.now()
+        _rebuild_festival_cache()
     return _festival_cache
 
 
@@ -541,12 +669,17 @@ def get_festival_list(stdate: str = "", eddate: str = "", signgucode: str = ""):
 
 @app.get("/api/festivals/sync")
 def force_festival_sync():
-    """캐시 무시하고 즉시 재수집(검증/수동 새로고침용)."""
+    """캐시 무시하고 즉시 재수집(검증/수동 새로고침용). 소스별 카운트 포함."""
     global _festival_cached_at
     _festival_cached_at = None
     items = get_festivals_raw()
     unmatched = sum(1 for it in items if not it["region"])
-    return {"status": "success", "total": len(items), "unmatched_region": unmatched}
+    return {
+        "status": "success", "total": len(items),
+        "supplemental": _festival_stats["supplemental"], "std": _festival_stats["std"],
+        "tour": _festival_stats["tour"], "tour_added": _festival_stats["tour_added"],
+        "unmatched_region": unmatched,
+    }
 
 
 # 🔹 [Phase 4] HTML 이메일 본문 생성 함수 (수익 최적화 가이드 템플릿)

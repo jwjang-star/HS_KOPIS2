@@ -75,9 +75,9 @@ KOPIS(`pblprfr`)는 "유료 티켓 기반 공연장 공연"만 다룬다. 벚꽃
 4. `/api/festivals?stdate=20260101&eddate=20261231&signgucode=11`(서울, 2026년) → 48건, 날짜/지역 필터 모두 정상 동작 확인(겸재책거리축제, 강동선사문화축제 등 실제 데이터)
 5. 기존 `/health`, `/api/kopis`, `/api/holidays` 회귀 확인 — 정상(코드상 신규 삽입뿐이라 예상대로)
 
-## 확장 여지 (지금 만들지 않음)
+## 확장 여지 → TourAPI 병합 (2026-09-03 완료, [06-tourapi-festival-source.md](./06-tourapi-festival-source.md))
 
-TourAPI로 전환/병행하고 싶어지면 `fetch_festivals_from_tourapi()` 같은 소스별 fetch 함수를 하나 더 추가하고 `normalize_festival()`과 같은 모양의 dict를 반환하게만 맞추면 된다 — 클래스나 플러그인 레지스트리 같은 추상화는 만들지 않는다(기존 main.py가 처음부터 순수 함수 스타일인 것과 일치).
+여기 적어둔 대로(`fetch_festivals_from_tourapi()` + `normalize_festival()`과 같은 dict 셰이프, 추상화 없이) TourAPI `searchFestival2`를 2차 소스로 병합함. 한화 서울세계불꽃축제 같은 민간·미등록 축제 보강용. 상세는 06번 문서.
 
 ## 범위 밖 (아직 안 함)
 
