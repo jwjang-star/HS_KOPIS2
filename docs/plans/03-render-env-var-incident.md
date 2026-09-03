@@ -2,6 +2,8 @@
 
 Phase 1/2 배포 후 `KASI_API_KEY`/`FESTIVAL_API_KEY`를 Render에 등록하는 과정에서 실제로 겪은 문제와 해결 과정. 다음에 Render 환경변수를 또 만지게 되면 이 문서부터 볼 것.
 
+> **2026-09-03 재발**: Phase 6(TourAPI) 배포 시 `TOUR_API_KEY`에 Encoding 값(`...NJ%2BopWrI...Mw%3D%3D`)을 그대로 넣어 `tour: 0`(아래 문제 1과 동일). Decoding 값으로 교체해 해결. **data.go.kr 키를 Render에 넣을 땐 무조건 이 문서 문제 1을 먼저 볼 것.** 참고: 세 키(`KASI`/`FESTIVAL`/`TOUR`) 값이 전부 동일하므로, 새 키는 기존 걸 그대로 복사하는 게 제일 안전.
+
 ## 겪은 문제 3가지
 
 **1. Encoding 키를 그대로 붙여넣음 → 이중 인코딩**
