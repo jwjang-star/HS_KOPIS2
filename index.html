@@ -345,8 +345,11 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 .cal-badge.perf{background:#E6F1FB;color:#185FA5}
 .cal-badge.fest{background:#FAEEDA;color:#9C640C}
 .cal-daylist{margin-top:14px;border-top:0.5px solid var(--color-border-tertiary);padding-top:8px}
-.cal-daylist-head{font-size:12px;font-weight:600;color:var(--color-text-secondary);padding:2px 2px 8px}
-.cal-daylist .pitem{border:0.5px solid var(--color-border-tertiary);border-radius:6px;margin-bottom:6px}
+.cal-daylist-head{font-size:12px;font-weight:600;color:var(--color-text-secondary);padding:2px 2px 4px}
+.cal-daylist-sec{font-size:11px;font-weight:600;color:var(--color-text-secondary);padding:12px 2px 6px;display:flex;align-items:center;gap:5px}
+.cal-daylist-sec:first-of-type{padding-top:4px}
+.cal-daylist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;align-items:start}
+.cal-daylist .pitem{border:0.5px solid var(--color-border-tertiary);border-radius:6px}
 .cal-daylist .pitem:last-child{border-bottom:0.5px solid var(--color-border-tertiary)}
 
 </style>
@@ -1803,13 +1806,34 @@ function renderCalDayList(){
   const md = `${calSelDate.slice(4,6)}/${calSelDate.slice(6,8)}`;
 
   wrap.style.display = 'block';
-  wrap.innerHTML = `<div class="cal-daylist-head">${md} · 공연 ${b.perfs.length} · 축제 ${b.festivals.length}</div>`;
+  wrap.innerHTML = '';
+  const head = document.createElement('div');
+  head.className = 'cal-daylist-head';
+  head.textContent = `${md} · 공연 ${b.perfs.length} · 축제 ${b.festivals.length}`;
+  wrap.appendChild(head);
+
   if(!b.perfs.length && !b.festivals.length){
-    wrap.innerHTML += '<div class="smsg">이 날짜에 등록된 공연·축제가 없습니다</div>';
+    const msg = document.createElement('div');
+    msg.className = 'smsg';
+    msg.textContent = '이 날짜에 등록된 공연·축제가 없습니다';
+    wrap.appendChild(msg);
     return;
   }
-  b.perfs.forEach(it => wrap.appendChild(createPerfCard(it, { showCheckbox:false })));
-  b.festivals.forEach(it => wrap.appendChild(createFestivalCard(it)));
+
+  // 공연 / 축제를 각각 섹션으로 분리하고, 섹션 안에서는 카드를 가로 그리드로(폭에 맞춰 자동 열 수)
+  const addSection = (label, items, render) => {
+    if(!items.length) return;
+    const sec = document.createElement('div');
+    sec.className = 'cal-daylist-sec';
+    sec.textContent = `${label} ${items.length}`;
+    wrap.appendChild(sec);
+    const grid = document.createElement('div');
+    grid.className = 'cal-daylist-grid';
+    items.forEach(it => grid.appendChild(render(it)));
+    wrap.appendChild(grid);
+  };
+  addSection('🎭 공연', b.perfs, it => createPerfCard(it, { showCheckbox:false }));
+  addSection('🎪 축제', b.festivals, it => createFestivalCard(it));
 }
 
 document.getElementById('btn-go').addEventListener('click', () => {
