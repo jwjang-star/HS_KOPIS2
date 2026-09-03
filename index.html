@@ -309,7 +309,46 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
   min-width: 48px;
   text-align: center;
 }
-    
+
+/* ─────────────────────────────────────────────
+   Phase 4: 캘린더 대시보드 (탭 전환형 2번째 뷰)
+───────────────────────────────────────────── */
+.dtabs{display:flex;gap:6px;padding:8px 14px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
+.dtab{font-size:11px;padding:5px 14px;border-radius:20px;border:0.5px solid var(--color-border-tertiary);cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);font-weight:500;white-space:nowrap}
+.dtab:hover{border-color:#378ADD;color:#185FA5}
+.dtab.on{background:#1A2940;color:#fff;border-color:#1A2940}
+.view-hidden{display:none!important}
+.ctrl-calendar-disabled{opacity:.4;pointer-events:none}
+#cal-body{padding:12px 14px 16px;max-width:1120px;margin:0 auto}
+.cal-toolbar{display:flex;align-items:center;justify-content:center;gap:10px;padding:6px 0 12px}
+.cal-toolbar button{height:26px;min-width:26px;padding:0 6px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:#185FA5;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
+.cal-toolbar button:hover{background:#E6F1FB}
+.cal-toolbar .cal-title{font-size:14px;font-weight:600;color:var(--color-text-primary);min-width:110px;text-align:center}
+.cal-toolbar .cal-today-btn{font-size:11px;font-weight:500;padding:0 10px}
+.cal-trunc-banner{margin:0 0 10px;padding:6px 10px;font-size:10px;line-height:1.6;border-radius:var(--border-radius-md);background:#FEF9E7;color:#7D6608;border:0.5px solid #F7DC6F}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-wd{text-align:center;font-size:10px;font-weight:600;color:var(--color-text-tertiary);padding:4px 0}
+.cal-wd.sun{color:#C0392B}
+.cal-wd.sat{color:#2471A3}
+.cal-cell{min-height:58px;border:0.5px solid var(--color-border-tertiary);border-radius:6px;padding:4px 6px 6px;cursor:pointer;background:var(--color-background-primary);display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.cal-cell:hover{border-color:#378ADD}
+.cal-cell.muted{opacity:.3;cursor:default;background:var(--color-background-secondary)}
+.cal-cell.muted:hover{border-color:var(--color-border-tertiary)}
+.cal-cell.holiday{background:#FEF5F4}
+.cal-cell.today{border-color:#185FA5;border-width:1.5px}
+.cal-cell.sel{background:#E6F1FB;border-color:#B5D4F4}
+.cal-daynum{font-size:11px;font-weight:600;color:var(--color-text-secondary)}
+.cal-cell.sun .cal-daynum{color:#C0392B}
+.cal-hname{font-size:9px;color:#943126;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-badges{display:flex;flex-wrap:wrap;gap:3px}
+.cal-badge{font-size:9px;padding:0 5px;border-radius:8px;line-height:15px;font-weight:600;white-space:nowrap}
+.cal-badge.perf{background:#E6F1FB;color:#185FA5}
+.cal-badge.fest{background:#FAEEDA;color:#9C640C}
+.cal-daylist{margin-top:14px;border-top:0.5px solid var(--color-border-tertiary);padding-top:8px}
+.cal-daylist-head{font-size:12px;font-weight:600;color:var(--color-text-secondary);padding:2px 2px 8px}
+.cal-daylist .pitem{border:0.5px solid var(--color-border-tertiary);border-radius:6px;margin-bottom:6px}
+.cal-daylist .pitem:last-child{border-bottom:0.5px solid var(--color-border-tertiary)}
+
 </style>
 
 <h2 class="sr-only">🌠 HSO X KOPIS 대시보드</h2>
@@ -348,7 +387,7 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 <div class="vd"></div>
 
 <!-- 기간 선택 (변경 없음) -->
-<div class="ctrl">
+<div class="ctrl" id="ctrl-period">
   <span class="clabel">기간</span>
   <input type="date" id="st" value="">
   <span class="clabel">~</span>
@@ -379,7 +418,7 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 <label id="lbl-only-new" style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary);cursor:pointer;user-select:none;white-space:nowrap;">
   <input type="checkbox" id="chk-only-new" onchange="renderList()" style="width:15px;height:15px;cursor:pointer;">🆕 신규만
 </label>
-<button class="btn-go" id="btn-go" onclick="doSearch()">
+<button class="btn-go" id="btn-go">
   <i class="ti ti-search" aria-hidden="true" style="font-size:13px"></i>조회
 </button>
 <button class="btn-mail" id="btn-send">
@@ -436,7 +475,13 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
   </div>
 </div>
 
-  <div class="body">
+  <!-- Phase 4: 최상위 뷰 전환 탭 (지도·리스트 ↔ 캘린더) -->
+  <div class="dtabs">
+    <span class="dtab on" data-view="grid" onclick="pickView(this)">🗺️ 지도·리스트</span>
+    <span class="dtab" data-view="calendar" onclick="pickView(this)">📅 캘린더</span>
+  </div>
+
+  <div class="body" id="body-grid">
     <div class="map-col">
       <div class="stats">
         <div class="scard"><div class="scard-n" id="s-total">–</div><div class="scard-l">조회 건수</div></div>
@@ -529,8 +574,41 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
         <div class="ulabel"><i class="ti ti-link" aria-hidden="true"></i> FastAPI 요청 URL</div>
         <div class="utext" id="utext">–</div>
       </div>
-      
+
     </div> </div>
+
+  <!-- Phase 4: 캘린더 뷰 (기본 숨김, .dtabs로 전환) -->
+  <div id="cal-body" class="view-hidden">
+    <div class="stats">
+      <div class="scard"><div class="scard-n" id="cal-s-perf">–</div><div class="scard-l">이달 공연</div></div>
+      <div class="scard"><div class="scard-n" id="cal-s-fest">–</div><div class="scard-l">이달 축제</div></div>
+      <div class="scard"><div class="scard-n" id="cal-s-holi">–</div><div class="scard-l">이달 공휴일</div></div>
+    </div>
+    <div class="cal-toolbar" id="cal-toolbar"></div>
+    <div class="rtabs">
+      <span class="rtab on" data-c="" data-n="전체" onclick="pickRegion(this)">전체</span>
+      <span class="rtab" data-c="11" data-n="서울" onclick="pickRegion(this)">서울</span>
+      <span class="rtab" data-c="28" data-n="인천" onclick="pickRegion(this)">인천</span>
+      <span class="rtab" data-c="41" data-n="경기" onclick="pickRegion(this)">경기</span>
+      <span class="rtab" data-c="51" data-n="강원" onclick="pickRegion(this)">강원</span>
+      <span class="rtab" data-c="43" data-n="충북" onclick="pickRegion(this)">충북</span>
+      <span class="rtab" data-c="44" data-n="충남" onclick="pickRegion(this)">충남</span>
+      <span class="rtab" data-c="30" data-n="대전" onclick="pickRegion(this)">대전</span>
+      <span class="rtab" data-c="36" data-n="세종" onclick="pickRegion(this)">세종</span>
+      <span class="rtab" data-c="47" data-n="경북" onclick="pickRegion(this)">경북</span>
+      <span class="rtab" data-c="27" data-n="대구" onclick="pickRegion(this)">대구</span>
+      <span class="rtab" data-c="48" data-n="경남" onclick="pickRegion(this)">경남</span>
+      <span class="rtab" data-c="26" data-n="부산" onclick="pickRegion(this)">부산</span>
+      <span class="rtab" data-c="31" data-n="울산" onclick="pickRegion(this)">울산</span>
+      <span class="rtab" data-c="45" data-n="전북" onclick="pickRegion(this)">전북</span>
+      <span class="rtab" data-c="46" data-n="전남" onclick="pickRegion(this)">전남</span>
+      <span class="rtab" data-c="29" data-n="광주" onclick="pickRegion(this)">광주</span>
+      <span class="rtab" data-c="50" data-n="제주" onclick="pickRegion(this)">제주</span>
+    </div>
+    <div class="cal-trunc-banner" id="cal-trunc-banner" style="display:none;"></div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-daylist" id="cal-daylist" style="display:none;"></div>
+  </div>
 
 <script>
 /* ══════════════════════════════════════════════
@@ -753,7 +831,7 @@ function buildMap(){
     path.addEventListener('click', function(){
       selCode = (selCode === r.code) ? '' : r.code;
       currentPage = 1; totalCount = 0;
-      refreshMap(); syncTabs(); doSearch();
+      refreshMap(); syncTabs(); refreshActiveView();
     });
 
     // 도(道) 라벨 — 영역 중앙에 크게
@@ -809,7 +887,7 @@ function buildMap(){
       path.addEventListener('click', function(){
         selCode = (selCode === '50') ? '' : '50';
         currentPage = 1; totalCount = 0;
-        refreshMap(); syncTabs(); doSearch();
+        refreshMap(); syncTabs(); refreshActiveView();
       });
 
       g.appendChild(path);
@@ -894,7 +972,7 @@ function buildMap(){
     g.addEventListener('click', function(){
       selCode = (selCode === r.code) ? '' : r.code;
       currentPage = 1; totalCount = 0;
-      refreshMap(); syncTabs(); doSearch();
+      refreshMap(); syncTabs(); refreshActiveView();
     });
 
     g.appendChild(ring);
@@ -1003,7 +1081,7 @@ function pickRegion(el){
   currentPage = 1; totalCount = 0;
   syncTabs();
   refreshMap();
-  doSearch();
+  refreshActiveView();
 }
 
 /* ══════════════════════════════════════════════
@@ -1205,17 +1283,20 @@ function renderHolidayStrip(stVal, edVal){
     inRange.map(h => `<span class="hs-item">${fmtMD(h.date)} ${h.name}</span>`).join('');
 }
 
-/* 공연 카드 1개 생성 (NEW/기존 섹션에서 공통 재사용) */
-function createPerfCard(item){
+/* 공연 카드 1개 생성 (NEW/기존 섹션에서 공통 재사용)
+   opts.showCheckbox === false 이면 선택 체크박스를 생략 — 캘린더 뷰(열람 전용)에서 사용.
+   기존 호출부(renderList)는 인자 미전달 → 체크박스 유지(동작 불변). */
+function createPerfCard(item, opts = {}){
+  const showCheckbox = opts.showCheckbox !== false;
   const isOpen  = item.openrun === 'Y';
   const stClass = STATE_CLASS[item.prfstate] || 'tag-end';
   const card    = document.createElement('div');
   card.className = 'pitem';
   card.setAttribute('role','button');
   card.innerHTML = `
-    <div class="pcheck" style="display:flex; align-items:center; padding: 0 8px;">
+    ${showCheckbox ? `<div class="pcheck" style="display:flex; align-items:center; padding: 0 8px;">
       <input type="checkbox" class="prf-checkbox" style="width:18px; height:18px; cursor:pointer;">
-    </div>
+    </div>` : ''}
     <div class="poster">${item.poster
       ? `<img src="${item.poster.replace('http://','https://')}" alt="${item.prfnm} 포스터" loading="lazy"
            onerror="this.parentElement.innerHTML='<i class=\\'ti ti-photo\\' style=\\'font-size:15px;color:var(--color-text-tertiary)\\'></i>'">`
@@ -1236,8 +1317,10 @@ function createPerfCard(item){
 
   // 체크박스에 공연 데이터 객체(item) 통째로 심기 + 카드 팝업 전파 방지
   const checkbox = card.querySelector('.prf-checkbox');
-  checkbox.performanceData = item;
-  checkbox.addEventListener('click', (e) => { e.stopPropagation(); });
+  if(checkbox){
+    checkbox.performanceData = item;
+    checkbox.addEventListener('click', (e) => { e.stopPropagation(); });
+  }
 
   card.addEventListener('click', () => {
     alert(`[${item.prfnm}] 공연 상세 정보 팝업창을 준비 중입니다! 🛠️`);
@@ -1447,9 +1530,298 @@ async function doSearch(){
   }
 }
 
+/* ══════════════════════════════════════════════
+   캘린더 대시보드 (Phase 4) — 최상위 탭으로 그리드 뷰(지도·리스트)와 전환.
+   공연(/api/kopis, 최대 CAL_MAX_PAGES 순회) + 축제(/api/festivals, 전량) + 공휴일(/api/holidays)을
+   한 달력에 집계. 날짜 클릭 시 그 날짜 카드 목록(열람 전용, 체크박스 없음).
+   기존 doSearch()/doFestivalSearch()/renderList()/발송 경로는 일절 건드리지 않음.
+══════════════════════════════════════════════ */
+let activeView   = 'grid';      // 'grid' | 'calendar'
+let calYear      = null;
+let calMonth     = null;        // 1~12
+let calSelDate   = null;        // 선택된 날짜 'YYYYMMDD' | null
+let calCache     = {};          // 키 '연-월|지역|장르|상태' → {buckets, truncated, perfCount, festCount}
+let calCacheBase = null;        // 캐시 기준 서버(srv-url). 바뀌면 폐기 (loadHolidays의 holidaysBase와 동일 사상)
+let calCurrentBuckets = {};     // 지금 그려진 달의 날짜별 버킷 (날짜 클릭 시 재조회 없이 사용)
+const CAL_MAX_PAGES = 3;        // /api/kopis 순회 상한 (100건/페이지 → 최대 300건)
+
+/* 활성 뷰에 맞는 새로고침 — 지역/서버/조회 트리거가 공통으로 호출 */
+function refreshActiveView(){
+  if(activeView === 'calendar') renderCalendar();
+  else doSearch();
+}
+
+function pickView(el){
+  const view = el.dataset.view;
+  if(view === activeView) return;
+  activeView = view;
+  document.querySelectorAll('.dtab').forEach(t => t.classList.toggle('on', t.dataset.view === view));
+
+  const isCal = view === 'calendar';
+  document.getElementById('body-grid').classList.toggle('view-hidden', isCal);
+  document.getElementById('cal-body').classList.toggle('view-hidden', !isCal);
+  // 캘린더 뷰에서 의미 없는 topbar 컨트롤만 흐리게 (장르/상태는 그리드와 공유하므로 유지)
+  ['ctrl-period','lbl-only-new','row-select-all','btn-send'].forEach(id => {
+    document.getElementById(id)?.classList.toggle('ctrl-calendar-disabled', isCal);
+  });
+
+  if(isCal){
+    // 그리드가 축제 모드였어도 캘린더에선 장르/상태를 쓸 수 있어야 함
+    ['sel-genre','sel-state'].forEach(id => document.getElementById(id)?.classList.remove('ctrl-festival-disabled'));
+  }else{
+    // 그리드 복귀: 축제 모드였다면 공연 전용 컨트롤 비활성 복원 (pickSource와 동일 규칙)
+    const isFestival = sourceMode === 'festival';
+    ['sel-genre','sel-state','lbl-only-new','row-select-all','btn-send'].forEach(id => {
+      document.getElementById(id)?.classList.toggle('ctrl-festival-disabled', isFestival);
+    });
+  }
+
+  refreshActiveView();
+}
+
+function calBase(){ return document.getElementById('srv-url').value.trim().replace(/\/$/,''); }
+
+/* 그 달 1일~말일을 YYYYMMDD로 */
+function calMonthRange(y, m){
+  const pad = n => String(n).padStart(2,'0');
+  const last = new Date(y, m, 0).getDate();
+  return { stdate:`${y}${pad(m)}01`, eddate:`${y}${pad(m)}${pad(last)}` };
+}
+
+/* /api/kopis를 cpage 1→CAL_MAX_PAGES 순차 호출. 100건 미만 페이지가 나오면 중단.
+   상한까지 채웠는데 마지막도 가득이면 truncated=true (이 달에 더 있을 수 있음). */
+async function loadCalendarPerfPages(st, ed){
+  const base  = calBase();
+  const genre = document.getElementById('sel-genre').value;
+  const state = document.getElementById('sel-state').value;
+  const all = [];
+  let truncated = false;
+  for(let page = 1; page <= CAL_MAX_PAGES; page++){
+    const p = new URLSearchParams({ stdate:st, eddate:ed, cpage:String(page), rows:'100' });
+    if(selCode) p.set('signgucode', selCode);
+    if(genre)   p.set('shcate', genre);
+    if(state)   p.set('prfstate', state);
+    let json;
+    try{
+      const res = await fetch(`${base}/api/kopis?${p}`, {signal:AbortSignal.timeout(12000)});
+      if(!res.ok) break;
+      json = await res.json();
+    }catch(e){ console.warn('캘린더 공연 로드 실패', page, e); break; }
+    if(json.status !== 'success') break;
+    const data = json.data || [];
+    all.push(...data);
+    if(data.length < 100) break;                    // 마지막 페이지
+    if(page === CAL_MAX_PAGES) truncated = true;     // 상한 도달 + 아직 가득
+  }
+  return { perfs: all, truncated };
+}
+
+async function loadCalendarFestivals(st, ed){
+  const base = calBase();
+  const p = new URLSearchParams({ stdate:st, eddate:ed });
+  if(selCode) p.set('signgucode', selCode);
+  try{
+    const res = await fetch(`${base}/api/festivals?${p}`, {signal:AbortSignal.timeout(15000)});
+    if(!res.ok) return [];
+    const json = await res.json();
+    return json.status === 'success' ? (json.data || []) : [];
+  }catch(e){ console.warn('캘린더 축제 로드 실패', e); return []; }
+}
+
+/* 공연/축제를 날짜별 버킷으로. 항목 기간이 그 달을 걸치면 걸치는 날짜마다 push */
+function bucketByDate(y, m, perfs, festivals){
+  const pad = n => String(n).padStart(2,'0');
+  const monthPrefix = `${y}${pad(m)}`;
+  const buckets = {};
+  const add = (key, kind, item) => {
+    (buckets[key] || (buckets[key] = { perfs:[], festivals:[] }))[kind].push(item);
+  };
+  const spanDays = (fromRaw, toRaw) => {
+    const from = normDate(fromRaw);
+    if(from.length !== 8) return [];
+    let to = normDate(toRaw);
+    if(to.length !== 8 || to < from) to = from;   // 종료일 없거나 이상하면 하루짜리로
+    const d0 = new Date(+from.slice(0,4), +from.slice(4,6)-1, +from.slice(6,8));
+    const d1 = new Date(+to.slice(0,4),   +to.slice(4,6)-1,   +to.slice(6,8));
+    const out = [];
+    for(let d = new Date(d0); d <= d1 && out.length < 400; d.setDate(d.getDate()+1)){
+      const key = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+      if(key.slice(0,6) === monthPrefix) out.push(key);
+    }
+    return out;
+  };
+  perfs.forEach(it => spanDays(it.prfpdfrom, it.prfpdto).forEach(k => add(k, 'perfs', it)));
+  festivals.forEach(it => spanDays(it.start_date, it.end_date).forEach(k => add(k, 'festivals', it)));
+  return buckets;
+}
+
+async function loadCalendarMonth(){
+  const base = calBase();
+  if(base !== calCacheBase){ calCache = {}; calCacheBase = base; }   // 서버 바뀌면 캐시 폐기
+  const genre = document.getElementById('sel-genre').value;
+  const state = document.getElementById('sel-state').value;
+  const key = `${calYear}-${calMonth}|${selCode}|${genre}|${state}`;
+  if(calCache[key]) return calCache[key];
+
+  const { stdate, eddate } = calMonthRange(calYear, calMonth);
+  const [perfRes, festivals] = await Promise.all([
+    loadCalendarPerfPages(stdate, eddate),
+    loadCalendarFestivals(stdate, eddate),
+    loadHolidays([calYear]),
+  ]);
+  const result = {
+    buckets: bucketByDate(calYear, calMonth, perfRes.perfs, festivals),
+    truncated: perfRes.truncated,
+    perfCount: perfRes.perfs.length,
+    festCount: festivals.length,
+  };
+  calCache[key] = result;
+  return result;
+}
+
+async function renderCalendar(){
+  const host = document.getElementById('cal-body');
+  if(!host) return;
+  if(!calYear || !calMonth){
+    const now = new Date();
+    calYear = now.getFullYear(); calMonth = now.getMonth() + 1;
+  }
+  syncTabs();  // 지역탭 상태를 selCode에 맞춤 (그리드 쪽 .rtab와 자동 공유)
+  renderCalToolbar();
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '<div class="spin-wrap" style="grid-column:1/-1"><div class="spin"></div>달력 불러오는 중...</div>';
+
+  let data;
+  try{ data = await loadCalendarMonth(); }
+  catch(e){
+    console.warn('캘린더 렌더 실패', e);
+    grid.innerHTML = '<div class="smsg" style="grid-column:1/-1">달력 데이터를 불러오지 못했습니다</div>';
+    return;
+  }
+
+  const mp = `${calYear}${String(calMonth).padStart(2,'0')}`;
+  document.getElementById('cal-s-perf').textContent = data.perfCount + (data.truncated ? '+' : '');
+  document.getElementById('cal-s-fest').textContent = data.festCount;
+  document.getElementById('cal-s-holi').textContent = holidayList.filter(h => h.date.slice(0,6) === mp).length;
+
+  const banner = document.getElementById('cal-trunc-banner');
+  if(data.truncated){
+    banner.style.display = 'block';
+    banner.textContent = `이 달 공연이 ${CAL_MAX_PAGES * 100}건을 넘어 일부만 표시됩니다. 지역이나 장르를 좁히면 정확해집니다.`;
+  }else{
+    banner.style.display = 'none';
+  }
+
+  renderCalGrid(data.buckets);
+}
+
+function renderCalToolbar(){
+  const el = document.getElementById('cal-toolbar');
+  el.innerHTML = '';
+  const prev  = document.createElement('button'); prev.textContent = '‹'; prev.title = '이전 달';
+  const next  = document.createElement('button'); next.textContent = '›'; next.title = '다음 달';
+  const title = document.createElement('span');   title.className = 'cal-title'; title.textContent = `${calYear}년 ${calMonth}월`;
+  const today = document.createElement('button'); today.className = 'cal-today-btn'; today.textContent = '오늘';
+  prev.addEventListener('click', () => { if(--calMonth < 1){ calMonth = 12; calYear--; } calSelDate = null; renderCalendar(); });
+  next.addEventListener('click', () => { if(++calMonth > 12){ calMonth = 1; calYear++; } calSelDate = null; renderCalendar(); });
+  today.addEventListener('click', () => { const n = new Date(); calYear = n.getFullYear(); calMonth = n.getMonth()+1; calSelDate = null; renderCalendar(); });
+  el.append(prev, title, next, today);
+}
+
+function renderCalGrid(buckets){
+  calCurrentBuckets = buckets || {};
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  const pad = n => String(n).padStart(2,'0');
+  ['일','월','화','수','목','금','토'].forEach((w, i) => {
+    const h = document.createElement('div');
+    h.className = 'cal-wd' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '');
+    h.textContent = w;
+    grid.appendChild(h);
+  });
+
+  const startDow     = new Date(calYear, calMonth - 1, 1).getDay();
+  const daysInMonth  = new Date(calYear, calMonth, 0).getDate();
+  const n            = new Date();
+  const todayKey     = `${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}`;
+
+  // 선택일이 이번 달 밖이면 해제
+  if(calSelDate && calSelDate.slice(0,6) !== `${calYear}${pad(calMonth)}`) calSelDate = null;
+
+  for(let slot = 0; slot < 42; slot++){
+    const dayNum = slot - startDow + 1;
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+    if(dayNum < 1 || dayNum > daysInMonth){ cell.classList.add('muted'); grid.appendChild(cell); continue; }
+
+    const key     = `${calYear}${pad(calMonth)}${pad(dayNum)}`;
+    const dow     = (startDow + dayNum - 1) % 7;
+    const holiday = holidayList.find(h => h.date === key);
+    if(dow === 0)          cell.classList.add('sun');
+    if(holiday)            cell.classList.add('holiday');
+    if(key === todayKey)   cell.classList.add('today');
+    if(key === calSelDate) cell.classList.add('sel');
+
+    const num = document.createElement('div'); num.className = 'cal-daynum'; num.textContent = dayNum;
+    cell.appendChild(num);
+    if(holiday){
+      const hn = document.createElement('div'); hn.className = 'cal-hname'; hn.textContent = holiday.name; hn.title = holiday.name;
+      cell.appendChild(hn);
+    }
+
+    const b = buckets[key] || { perfs:[], festivals:[] };
+    const badges = document.createElement('div'); badges.className = 'cal-badges';
+    if(b.perfs.length){
+      const s = document.createElement('span'); s.className = 'cal-badge perf';
+      s.textContent = `연 ${b.perfs.length > 99 ? '99+' : b.perfs.length}`;
+      badges.appendChild(s);
+    }
+    if(b.festivals.length){
+      const s = document.createElement('span'); s.className = 'cal-badge fest';
+      s.textContent = `축 ${b.festivals.length > 99 ? '99+' : b.festivals.length}`;
+      badges.appendChild(s);
+    }
+    cell.appendChild(badges);
+
+    cell.addEventListener('click', () => {
+      calSelDate = (calSelDate === key) ? null : key;
+      grid.querySelectorAll('.cal-cell.sel').forEach(c => c.classList.remove('sel'));
+      if(calSelDate) cell.classList.add('sel');
+      renderCalDayList();
+    });
+    grid.appendChild(cell);
+  }
+
+  renderCalDayList();
+}
+
+function renderCalDayList(){
+  const wrap = document.getElementById('cal-daylist');
+  if(!calSelDate){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  const b = calCurrentBuckets[calSelDate] || { perfs:[], festivals:[] };
+  const md = `${calSelDate.slice(4,6)}/${calSelDate.slice(6,8)}`;
+
+  wrap.style.display = 'block';
+  wrap.innerHTML = `<div class="cal-daylist-head">${md} · 공연 ${b.perfs.length} · 축제 ${b.festivals.length}</div>`;
+  if(!b.perfs.length && !b.festivals.length){
+    wrap.innerHTML += '<div class="smsg">이 날짜에 등록된 공연·축제가 없습니다</div>';
+    return;
+  }
+  b.perfs.forEach(it => wrap.appendChild(createPerfCard(it, { showCheckbox:false })));
+  b.festivals.forEach(it => wrap.appendChild(createFestivalCard(it)));
+}
+
 document.getElementById('btn-go').addEventListener('click', () => {
   currentPage = 1; totalCount = 0;
-  doSearch();
+  refreshActiveView();
+});
+
+/* 장르/상태 드롭다운은 그리드 뷰와 공유. 캘린더 뷰에서는 변경 즉시 반영(그리드 동작은 불변 — 조회 버튼 경유 유지) */
+['sel-genre','sel-state'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => {
+    if(activeView === 'calendar') renderCalendar();
+  });
 });
     
 /* ══════════════════════════════════════════════
@@ -1483,7 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
    초기화 (변경 없음)
 ══════════════════════════════════════════════ */
 document.getElementById('srv-url').addEventListener('change',()=>{
-  checkServer().then(ok=>{if(ok)doSearch();});
+  checkServer().then(ok=>{if(ok)refreshActiveView();});
 });
 
 buildMap();

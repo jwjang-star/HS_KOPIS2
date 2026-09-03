@@ -9,12 +9,16 @@ KOPIS 공연 데이터를 지역별로 조회해서 지점 주변 숙박 수요�
 | 1 | 공휴일(연휴) 연동 — 한국천문연구원 특일정보 API | ✅ 구현+검증+배포+**프로덕션 실데이터 확인 완료** (2026-08-05) |
 | 2 | 전국 축제 연동(백엔드) — 전국문화축제표준데이터 | ✅ 구현+검증+배포+**프로덕션 실데이터 확인 완료** (2026-08-05) |
 | 3 | UI 통합 (리스트 상단 "공연\|축제" 탭 + 지도 보조마커) | ✅ 구현+브라우저 검증+배포 완료 (2026-08-05) |
+| 4 | 캘린더 대시보드 (최상위 탭으로 지도·리스트 뷰와 전환, 공연+축제+공휴일을 한 달력에) | 🔧 1차 구현 + 로컬 검증 완료 (2026-09-02), **프로덕션 미배포**. 날짜 리스트 2단(공연/축제) 개선 후 배포 예정 |
+| 5 | Supabase 보안 강화 (RLS 잠금 + 키 로테이션, 저장소 Public 확인 대응) | ✅ 조치+검증 완료 (2026-08-26) |
 
 ## 문서 목록
 
 - [01-holiday-integration.md](./01-holiday-integration.md) — Phase 1 상세 설계·구현·검증 기록 (완료, 프로덕션 확인됨)
 - [02-festival-integration.md](./02-festival-integration.md) — Phase 2+3 상세 설계·구현·검증 기록 (완료, 프로덕션 확인됨)
 - [03-render-env-var-incident.md](./03-render-env-var-incident.md) — 2026-08-05 Render 환경변수 설정 중 겪은 실제 사고와 교훈
+- [04-calendar-dashboard.md](./04-calendar-dashboard.md) — Phase 4 캘린더 대시보드 설계 + 1차 구현 결과 (로컬 검증 완료, 미배포 / 날짜 리스트 2단화 다음 세션)
+- [05-supabase-security-hardening.md](./05-supabase-security-hardening.md) — Phase 5 Supabase RLS 잠금 + 키 로테이션 조치 기록 (완료)
 
 ## 작업 원칙 (모든 Phase 공통)
 
