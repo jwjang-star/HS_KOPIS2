@@ -1610,14 +1610,13 @@ function _wxEmoji(wf){
   if(s.includes('맑')) return '☀️';
   return '';
 }
-/* 지금 그리는 달이 중기예보 창(오늘+4 ~ 오늘+10)과 겹치나 */
+/* 지금 그리는 달이 예보 창(오늘 ~ 오늘+10)과 겹치나 */
 function calMonthHasWeather(){
   const t = new Date(); t.setHours(0,0,0,0);
-  const lo = new Date(t); lo.setDate(lo.getDate() + 4);
   const hi = new Date(t); hi.setDate(hi.getDate() + 10);
   const mLo = new Date(calYear, calMonth - 1, 1);
   const mHi = new Date(calYear, calMonth, 0);
-  return lo <= mHi && hi >= mLo;
+  return t <= mHi && hi >= mLo;
 }
 async function loadCalendarWeather(){
   if(!calMonthHasWeather()){ calWeather = {}; calWeatherKey = null; return; }
@@ -1625,7 +1624,7 @@ async function loadCalendarWeather(){
   const key = selCode + '|' + base;
   if(calWeatherKey === key && Object.keys(calWeather).length) return;
   try{
-    const res = await fetch(`${base}/api/weather/mid?region=${selCode}`, {signal:AbortSignal.timeout(18000)});
+    const res = await fetch(`${base}/api/weather?region=${selCode}`, {signal:AbortSignal.timeout(18000)});
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     calWeather = json.days || {};
