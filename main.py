@@ -682,6 +682,120 @@ def force_festival_sync():
     }
 
 
+# 🔹 캘린더 날씨 — 기상청 중기예보(중기육상예보 + 중기기온). **캘린더 뷰 전용.**
+#    D+4~D+10만 커버(D+0~D+3 단기예보는 미연동). 키 없거나 실패 시 빈 dict → 캘린더는 날씨 없이 정상.
+#    ⚠️ apis.data.go.kr (s 있음), 1360000. 키는 다른 data.go.kr 키와 동일 값(계정 공용), Decoding 형태.
+KMA_MID_API_KEY = os.environ.get("KMA_MID_API_KEY", "")
+MID_BASE = "http://apis.data.go.kr/1360000/MidFcstInfoService"
+
+# KOPIS signgucode → (중기육상예보 regId, 중기기온 도시 regId). "" (전체) → 서울. (2026-09-07 실키 검증)
+KOPIS_TO_MID_REGID = {
+    "":   ("11B00000", "11B10101"),
+    "11": ("11B00000", "11B10101"),  # 서울
+    "28": ("11B00000", "11B20201"),  # 인천
+    "41": ("11B00000", "11B20601"),  # 경기(수원)
+    "51": ("11D10000", "11D10301"),  # 강원(영서/춘천)
+    "43": ("11C10000", "11C10301"),  # 충북(청주)
+    "44": ("11C20000", "11C20101"),  # 충남(홍성)
+    "30": ("11C20000", "11C20401"),  # 대전
+    "36": ("11C20000", "11C20404"),  # 세종
+    "47": ("11H10000", "11H10501"),  # 경북(안동)
+    "27": ("11H10000", "11H10701"),  # 대구
+    "48": ("11H20000", "11H20301"),  # 경남(창원)
+    "26": ("11H20000", "11H20201"),  # 부산
+    "31": ("11H20000", "11H20101"),  # 울산
+    "45": ("11F10000", "11F10201"),  # 전북(전주)
+    "46": ("11F20000", "21F20801"),  # 전남(목포)
+    "29": ("11F20000", "11F20501"),  # 광주
+    "50": ("11G00000", "11G00201"),  # 제주
+}
+
+_weather_cache: dict = {}       # (land_reg, ta_reg) → {"YYYYMMDD": {...}}
+_weather_cached_at: dict = {}   # (land_reg, ta_reg) → datetime
+_WEATHER_CACHE_TTL = timedelta(hours=3)
+
+
+def _mid_tmfc() -> str:
+    """중기예보 발표시각(KST 기준). 06시/18시 발표, 최근 24시간 자료만 조회 가능."""
+    now = datetime.now(timezone(timedelta(hours=9)))
+    if now.hour >= 18:
+        return now.strftime("%Y%m%d") + "1800"
+    if now.hour >= 6:
+        return now.strftime("%Y%m%d") + "0600"
+    return (now - timedelta(days=1)).strftime("%Y%m%d") + "1800"
+
+
+def _to_int(v):
+    try:
+        return int(str(v).strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def fetch_mid_weather(land_reg: str, ta_reg: str) -> dict:
+    """getMidLandFcst + getMidTa 병합 → {"YYYYMMDD": {"wf","pop","tmn","tmx"}} (D+4~D+10).
+    부분 실패 허용(날씨만/기온만 채워질 수 있음). 키 없으면 {}."""
+    if not KMA_MID_API_KEY:
+        return {}
+    tmfc = _mid_tmfc()
+    base_date = datetime.strptime(tmfc[:8], "%Y%m%d")
+    days: dict = {}
+    common = {"serviceKey": KMA_MID_API_KEY, "pageNo": 1, "numOfRows": 10,
+              "dataType": "JSON", "tmFc": tmfc}
+
+    def day_key(n):
+        return (base_date + timedelta(days=n)).strftime("%Y%m%d")
+
+    try:  # 육상예보: 날씨(wf) + 강수확률(rnSt). D+4~7은 오전/오후, D+8~10은 단일값
+        r = requests.get(f"{MID_BASE}/getMidLandFcst", params={**common, "regId": land_reg}, timeout=15)
+        item = r.json()["response"]["body"]["items"]["item"][0]
+        for n in range(4, 11):
+            wf = item.get(f"wf{n}Pm") or item.get(f"wf{n}")
+            single = item.get(f"rnSt{n}")
+            if single is not None:
+                pop = _to_int(single)
+            else:
+                cand = [x for x in (_to_int(item.get(f"rnSt{n}Am")), _to_int(item.get(f"rnSt{n}Pm"))) if x is not None]
+                pop = max(cand) if cand else None
+            if wf or pop is not None:
+                d = days.setdefault(day_key(n), {})
+                d["wf"], d["pop"] = wf, pop
+    except Exception as e:
+        print(f"[weather] getMidLandFcst 실패 ({land_reg}): {e}")
+
+    try:  # 기온: 최저/최고
+        r = requests.get(f"{MID_BASE}/getMidTa", params={**common, "regId": ta_reg}, timeout=15)
+        item = r.json()["response"]["body"]["items"]["item"][0]
+        for n in range(4, 11):
+            tmn, tmx = _to_int(item.get(f"taMin{n}")), _to_int(item.get(f"taMax{n}"))
+            if tmn is not None or tmx is not None:
+                d = days.setdefault(day_key(n), {})
+                d["tmn"], d["tmx"] = tmn, tmx
+    except Exception as e:
+        print(f"[weather] getMidTa 실패 ({ta_reg}): {e}")
+
+    return days
+
+
+def get_weather_for_region(signgucode: str) -> dict:
+    """지역별 중기예보(3시간 in-memory 캐시). 실패 시 이전 캐시 유지."""
+    land_reg, ta_reg = KOPIS_TO_MID_REGID.get(signgucode or "", KOPIS_TO_MID_REGID[""])
+    ck = (land_reg, ta_reg)
+    at = _weather_cached_at.get(ck)
+    if at is None or (datetime.now() - at) > _WEATHER_CACHE_TTL:
+        days = fetch_mid_weather(land_reg, ta_reg)
+        if days:
+            _weather_cache[ck] = days
+            _weather_cached_at[ck] = datetime.now()
+    return _weather_cache.get(ck, {})
+
+
+@app.get("/api/weather/mid")
+def get_mid_weather(region: str = ""):
+    """캘린더용 중기예보(D+4~D+10). region = KOPIS signgucode. 실패해도 200 + 빈 days."""
+    return {"status": "success", "base_date": _mid_tmfc()[:8], "days": get_weather_for_region(region)}
+
+
 # 🔹 [Phase 4] HTML 이메일 본문 생성 함수 (수익 최적화 가이드 템플릿)
 def build_email_body(region: str, performances: list):
     today     = datetime.today().strftime("%Y년 %m월 %d일")

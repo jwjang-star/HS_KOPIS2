@@ -337,15 +337,20 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
 .cal-cell.holiday{background:#FEF5F4}
 .cal-cell.today{border-color:#185FA5;border-width:1.5px}
 .cal-cell.sel{background:#E6F1FB;border-color:#B5D4F4}
+.cal-cell-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .cal-daynum{font-size:11px;font-weight:600;color:var(--color-text-secondary)}
 .cal-cell.sun .cal-daynum{color:#C0392B}
 .cal-hname{font-size:9px;color:#943126;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-wx{white-space:nowrap;font-size:9.5px;font-weight:600;color:var(--color-text-secondary);flex-shrink:0}
+.cal-wx-i{font-size:11px;margin-right:1px}
+.cal-wx-p{margin-left:3px;font-size:8.5px;color:#185FA5}
 .cal-badges{display:flex;flex-wrap:wrap;gap:3px}
 .cal-badge{font-size:9px;padding:0 5px;border-radius:8px;line-height:15px;font-weight:600;white-space:nowrap}
 .cal-badge.perf{background:#E6F1FB;color:#185FA5}
 .cal-badge.fest{background:#FAEEDA;color:#9C640C}
 .cal-daylist{margin-top:14px;border-top:0.5px solid var(--color-border-tertiary);padding-top:8px}
 .cal-daylist-head{font-size:12px;font-weight:600;color:var(--color-text-secondary);padding:2px 2px 4px}
+.cal-daylist-wx{font-size:11px;color:var(--color-text-secondary);padding:3px 2px 8px}
 .cal-daylist-sec{font-size:11px;font-weight:600;color:var(--color-text-secondary);padding:12px 2px 6px;display:flex;align-items:center;gap:5px}
 .cal-daylist-sec:first-of-type{padding-top:4px}
 .cal-daylist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;align-items:start}
@@ -1547,6 +1552,8 @@ let calCache     = {};          // 키 '연-월|지역|장르|상태' → {bucke
 let calCacheBase = null;        // 캐시 기준 서버(srv-url). 바뀌면 폐기 (loadHolidays의 holidaysBase와 동일 사상)
 let calCurrentBuckets = {};     // 지금 그려진 달의 날짜별 버킷 (날짜 클릭 시 재조회 없이 사용)
 const CAL_MAX_PAGES = 3;        // /api/kopis 순회 상한 (100건/페이지 → 최대 300건)
+let calWeather    = {};         // 중기예보 'YYYYMMDD' → {wf, pop, tmn, tmx} (D+4~D+10). 캘린더 전용
+let calWeatherKey = null;       // 현재 calWeather가 어느 지역|서버 기준인지
 
 /* 활성 뷰에 맞는 새로고침 — 지역/서버/조회 트리거가 공통으로 호출 */
 function refreshActiveView(){
@@ -1589,6 +1596,44 @@ function calMonthRange(y, m){
   const pad = n => String(n).padStart(2,'0');
   const last = new Date(y, m, 0).getDate();
   return { stdate:`${y}${pad(m)}01`, eddate:`${y}${pad(m)}${pad(last)}` };
+}
+
+/* ── 캘린더 날씨 (중기예보 D+4~D+10, 캘린더 뷰 전용) ── */
+function _wxEmoji(wf){
+  const s = wf || '';
+  if(s.includes('눈')) return '🌨️';
+  if(s.includes('소나기')) return '🌦️';
+  if(s.includes('비')) return '🌧️';
+  if(s.includes('흐')) return '☁️';
+  if(s.includes('구름많')) return '⛅';
+  if(s.includes('구름')) return '🌤️';
+  if(s.includes('맑')) return '☀️';
+  return '';
+}
+/* 지금 그리는 달이 중기예보 창(오늘+4 ~ 오늘+10)과 겹치나 */
+function calMonthHasWeather(){
+  const t = new Date(); t.setHours(0,0,0,0);
+  const lo = new Date(t); lo.setDate(lo.getDate() + 4);
+  const hi = new Date(t); hi.setDate(hi.getDate() + 10);
+  const mLo = new Date(calYear, calMonth - 1, 1);
+  const mHi = new Date(calYear, calMonth, 0);
+  return lo <= mHi && hi >= mLo;
+}
+async function loadCalendarWeather(){
+  if(!calMonthHasWeather()){ calWeather = {}; calWeatherKey = null; return; }
+  const base = calBase();
+  const key = selCode + '|' + base;
+  if(calWeatherKey === key && Object.keys(calWeather).length) return;
+  try{
+    const res = await fetch(`${base}/api/weather/mid?region=${selCode}`, {signal:AbortSignal.timeout(12000)});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    calWeather = json.days || {};
+    calWeatherKey = key;
+  }catch(e){
+    console.warn('캘린더 날씨 로드 실패', e);
+    calWeather = {}; calWeatherKey = null;
+  }
 }
 
 /* /api/kopis를 cpage 1→CAL_MAX_PAGES 순차 호출. 100건 미만 페이지가 나오면 중단.
@@ -1696,7 +1741,7 @@ async function renderCalendar(){
   grid.innerHTML = '<div class="spin-wrap" style="grid-column:1/-1"><div class="spin"></div>달력 불러오는 중...</div>';
 
   let data;
-  try{ data = await loadCalendarMonth(); }
+  try{ [data] = await Promise.all([loadCalendarMonth(), loadCalendarWeather()]); }
   catch(e){
     console.warn('캘린더 렌더 실패', e);
     grid.innerHTML = '<div class="smsg" style="grid-column:1/-1">달력 데이터를 불러오지 못했습니다</div>';
@@ -1766,8 +1811,22 @@ function renderCalGrid(buckets){
     if(key === todayKey)   cell.classList.add('today');
     if(key === calSelDate) cell.classList.add('sel');
 
+    const top = document.createElement('div'); top.className = 'cal-cell-top';
     const num = document.createElement('div'); num.className = 'cal-daynum'; num.textContent = dayNum;
-    cell.appendChild(num);
+    top.appendChild(num);
+
+    const wx = calWeather[key];
+    if(wx){
+      const w = document.createElement('div');
+      w.className = 'cal-wx';
+      const temp = (wx.tmx != null ? wx.tmx + '°' : '') + (wx.tmn != null ? '/' + wx.tmn + '°' : '');
+      w.innerHTML = `<span class="cal-wx-i">${_wxEmoji(wx.wf)}</span>${temp}` +
+        (wx.pop != null && wx.pop >= 50 ? `<span class="cal-wx-p">☔${wx.pop}</span>` : '');
+      w.title = (wx.wf || '') + (wx.pop != null ? ` · 강수확률 ${wx.pop}%` : '');
+      top.appendChild(w);
+    }
+    cell.appendChild(top);
+
     if(holiday){
       const hn = document.createElement('div'); hn.className = 'cal-hname'; hn.textContent = holiday.name; hn.title = holiday.name;
       cell.appendChild(hn);
@@ -1811,6 +1870,18 @@ function renderCalDayList(){
   head.className = 'cal-daylist-head';
   head.textContent = `${md} · 공연 ${b.perfs.length} · 축제 ${b.festivals.length}`;
   wrap.appendChild(head);
+
+  const wx = calWeather[calSelDate];
+  if(wx){
+    const wl = document.createElement('div');
+    wl.className = 'cal-daylist-wx';
+    const parts = [];
+    if(wx.wf) parts.push(`${_wxEmoji(wx.wf)} ${wx.wf}`);
+    if(wx.tmx != null || wx.tmn != null) parts.push(`${wx.tmx != null ? wx.tmx + '°' : '?'} / ${wx.tmn != null ? wx.tmn + '°' : '?'}`);
+    if(wx.pop != null) parts.push(`강수확률 ${wx.pop}%`);
+    wl.textContent = parts.join('   ·   ');
+    wrap.appendChild(wl);
+  }
 
   if(!b.perfs.length && !b.festivals.length){
     const msg = document.createElement('div');
