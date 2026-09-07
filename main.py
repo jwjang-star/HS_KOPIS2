@@ -747,7 +747,7 @@ def fetch_mid_weather(land_reg: str, ta_reg: str) -> dict:
         return (base_date + timedelta(days=n)).strftime("%Y%m%d")
 
     try:  # 육상예보: 날씨(wf) + 강수확률(rnSt). D+4~7은 오전/오후, D+8~10은 단일값
-        r = requests.get(f"{MID_BASE}/getMidLandFcst", params={**common, "regId": land_reg}, timeout=15)
+        r = requests.get(f"{MID_BASE}/getMidLandFcst", params={**common, "regId": land_reg}, timeout=8)
         item = r.json()["response"]["body"]["items"]["item"][0]
         for n in range(4, 11):
             wf = item.get(f"wf{n}Pm") or item.get(f"wf{n}")
@@ -764,7 +764,7 @@ def fetch_mid_weather(land_reg: str, ta_reg: str) -> dict:
         print(f"[weather] getMidLandFcst 실패 ({land_reg}): {e}")
 
     try:  # 기온: 최저/최고
-        r = requests.get(f"{MID_BASE}/getMidTa", params={**common, "regId": ta_reg}, timeout=15)
+        r = requests.get(f"{MID_BASE}/getMidTa", params={**common, "regId": ta_reg}, timeout=8)
         item = r.json()["response"]["body"]["items"]["item"][0]
         for n in range(4, 11):
             tmn, tmx = _to_int(item.get(f"taMin{n}")), _to_int(item.get(f"taMax{n}"))
@@ -778,16 +778,20 @@ def fetch_mid_weather(land_reg: str, ta_reg: str) -> dict:
 
 
 def get_weather_for_region(signgucode: str) -> dict:
-    """지역별 중기예보(3시간 in-memory 캐시). 실패 시 이전 캐시 유지."""
+    """지역별 중기예보 캐시. 완전한 결과는 3시간, 기온 누락 등 부분 결과는 15분 후 재시도."""
     land_reg, ta_reg = KOPIS_TO_MID_REGID.get(signgucode or "", KOPIS_TO_MID_REGID[""])
     ck = (land_reg, ta_reg)
+    cached = _weather_cache.get(ck, {})
+    complete = bool(cached) and any("tmx" in d for d in cached.values())
+    ttl = _WEATHER_CACHE_TTL if complete else timedelta(minutes=15)
     at = _weather_cached_at.get(ck)
-    if at is None or (datetime.now() - at) > _WEATHER_CACHE_TTL:
+    if at is None or (datetime.now() - at) > ttl:
         days = fetch_mid_weather(land_reg, ta_reg)
         if days:
             _weather_cache[ck] = days
             _weather_cached_at[ck] = datetime.now()
-    return _weather_cache.get(ck, {})
+            cached = days
+    return cached
 
 
 @app.get("/api/weather/mid")

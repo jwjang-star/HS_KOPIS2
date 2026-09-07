@@ -1625,7 +1625,7 @@ async function loadCalendarWeather(){
   const key = selCode + '|' + base;
   if(calWeatherKey === key && Object.keys(calWeather).length) return;
   try{
-    const res = await fetch(`${base}/api/weather/mid?region=${selCode}`, {signal:AbortSignal.timeout(12000)});
+    const res = await fetch(`${base}/api/weather/mid?region=${selCode}`, {signal:AbortSignal.timeout(18000)});
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     calWeather = json.days || {};
@@ -1741,7 +1741,7 @@ async function renderCalendar(){
   grid.innerHTML = '<div class="spin-wrap" style="grid-column:1/-1"><div class="spin"></div>달력 불러오는 중...</div>';
 
   let data;
-  try{ [data] = await Promise.all([loadCalendarMonth(), loadCalendarWeather()]); }
+  try{ data = await loadCalendarMonth(); }
   catch(e){
     console.warn('캘린더 렌더 실패', e);
     grid.innerHTML = '<div class="smsg" style="grid-column:1/-1">달력 데이터를 불러오지 못했습니다</div>';
@@ -1762,6 +1762,13 @@ async function renderCalendar(){
   }
 
   renderCalGrid(data.buckets);
+
+  // 날씨는 보조 정보 — 캘린더 렌더를 막지 않고 뒤에서 받아 칩만 다시 그림
+  loadCalendarWeather().then(() => {
+    if(activeView === 'calendar' && document.getElementById('cal-grid') && Object.keys(calWeather).length){
+      renderCalGrid(calCurrentBuckets);
+    }
+  });
 }
 
 function renderCalToolbar(){

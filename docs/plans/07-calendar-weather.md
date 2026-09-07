@@ -26,8 +26,8 @@
 - 전역 `calWeather`, `calWeatherKey`
 - `_wxEmoji(wf)` — "맑음"→☀️ "구름많음"→⛅ "흐림"→☁️ "비"→🌧️ "눈"→🌨️ "소나기"→🌦️
 - `calMonthHasWeather()` — 지금 그리는 달이 `[오늘+4, 오늘+10]`과 겹치나
-- `loadCalendarWeather()` — 겹칠 때만 `fetch(base + "/api/weather/mid?region=" + selCode)`. 캐시키 `selCode|base`, 서버 바뀌면 초기화. 자체 try/catch(리젝트 안 함)
-- `renderCalendar()` — `await loadCalendarMonth()` → `await Promise.all([loadCalendarMonth(), loadCalendarWeather()])`
+- `loadCalendarWeather()` — 겹칠 때만 `fetch(base + "/api/weather/mid?region=" + selCode)`. 캐시키 `selCode|base`, 서버 바뀌면 초기화. 자체 try/catch(리젝트 안 함), abort 18s
+- `renderCalendar()` — `await loadCalendarMonth()` → `renderCalGrid()`로 캘린더 **먼저** 렌더. 그다음 `loadCalendarWeather().then(() => renderCalGrid(calCurrentBuckets))`로 날씨 칩만 뒤에서 채움. **날씨 API가 느려도 캘린더 렌더 안 막음**(중요 — KMA API가 간헐적으로 15s+ 걸림). 재렌더 시 `calSelDate` 유지됨
 - `renderCalGrid()` — 셀 최상단에 `.cal-cell-top` flex 행 신설(`daynum` + `.cal-wx`). `.cal-wx` = `{emoji}{tmx}°/{tmn}°`, 강수확률 ≥50%면 `☔{pop}` 덧붙임
 - `renderCalDayList()` — 헤더 밑에 `.cal-daylist-wx` 한 줄(`⛅ 구름많음 · 28° / 18° · 강수확률 20%`)
 - CSS: `.cal-cell-top`(flex, gap 5px), `.cal-wx`, `.cal-daylist-wx`
@@ -50,7 +50,8 @@
 
 - `getMidLandFcst`/`getMidTa` 응답 봉투: `response.body.items.item[0]` 단일 행. 필드 `wf4Am/Pm`~`wf10`, `rnSt4Am/Pm`~`rnSt10`, `taMin4`~`taMax10`
 - `wfN` → 날짜 = `tmFc의 날짜 + N일`
-- 중기예보는 하루 2회(06/18시)만 갱신 → 3시간 캐시로 충분. Render 재시작 시 캐시 비지만 무료 API라 비용 없음
+- 중기예보는 하루 2회(06/18시)만 갱신 → 완전한 결과는 3시간 캐시. **`apis.data.go.kr`이 간헐적으로 connect timeout** — `getMidTa`만 실패하면 기온 없는 부분결과가 캐시됨 → 이 경우 15분 후 자동 재시도(`get_weather_for_region`이 `tmx` 유무로 판단). KMA 호출 타임아웃 8s.
+- Render 재시작 시 캐시 비지만 무료 API라 비용 없음
 - data.go.kr 4번째 키(`KASI`/`FESTIVAL`/`TOUR` 다음) — 전부 같은 값
 
 ## 범위 밖
