@@ -1,6 +1,7 @@
 # Phase 7 — 캘린더 날씨 (기상청 단기예보 + 중기예보)
 
-**상태: 구현 + 로컬 브라우저 검증 완료 (2026-09-07). 프로덕션 배포 대기 — Render에 `KMA_MID_API_KEY` 등록 필요.**
+**상태: 프로덕션 배포·라이브 확인 완료 (2026-09-07, 커밋 `5743cbb`, `master`==`main`).**
+프로덕션 `/api/weather?region=11` → 11일(09-07~17). GitHub Pages 캘린더에서 오늘~+10일 날씨칩 확인. Render `KMA_MID_API_KEY` 정상.
 
 ## 배경
 
@@ -46,12 +47,9 @@
 - **스코프 확인**: 그리드 뷰·지도·리스트에 날씨 없음
 - 회귀: `/api/kopis`·`/api/holidays`·`/api/festivals` 정상. 콘솔·서버 에러 0. `python -m py_compile`·`node --check` 통과
 
-## 배포
+## 배포 (2026-09-07 완료)
 
-1. **Render Environment에 `KMA_MID_API_KEY` 추가** — 값은 `FESTIVAL_API_KEY`와 **동일**. **Decoding 형태** — Encoding(`%2B`) 넣으면 이중인코딩 사고([[03]])
-2. `git push origin master:main` → Render 재배포(백엔드 변경)
-3. 프로덕션 `/api/weather?region=11` 확인(11일), 캘린더에서 날씨 노출 확인
-   - 키 없이 배포해도 안전(캘린더는 날씨 없이 정상)
+Render Environment `KMA_MID_API_KEY` = `FESTIVAL_API_KEY`와 동일 값(Decoding) 등록 → `git push origin master:main` (`main` `1a07bf2`..`5743cbb`). 이번엔 인코딩 실수 없이 한 번에 성공. 프로덕션 `/api/weather` 11일, 라이브 캘린더 칩 확인.
 
 ## 운영/로컬 참고
 
