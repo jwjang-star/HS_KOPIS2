@@ -552,16 +552,30 @@ def _fmt_date(s: str) -> str:
     return f"{d[:4]}-{d[4:6]}-{d[6:8]}" if len(d) == 8 else (s or "")
 
 
+# 기존 축제 데이터(표준데이터+TourAPI) 중 스포츠성 행사를 kind="sports"로 재분류.
+# 타이트한 화이트리스트 — "빵지자랑"/"버스킹 월드컵" 같은 오탐 방지.
+_SPORTS_RE = re.compile(
+    r"마라톤|트라이애슬론|철인\s*3종|그란폰도|듀애슬론"
+    r"|[eE]스포츠|이스포츠|롤드컵|LCK|MSI|케스파컵"
+    r"|월드컵\s*예선|세계\s*선수권|A매치|국가대표\s*평가전|그랑프리|국제\s*서핑"
+)
+
+
+def _infer_kind(name: str) -> str:
+    return "sports" if _SPORTS_RE.search(name or "") else "festival"
+
+
 def normalize_festival(item) -> dict:
     def g(tag): return (item.findtext(tag) or "").strip()
     address = g('rdnmadr') or g('lnmadr')
+    name = g('fstvlNm')
     return {
-        "name": g('fstvlNm'), "place": g('opar'),
+        "name": name, "place": g('opar'),
         "start_date": g('fstvlStartDate'), "end_date": g('fstvlEndDate'),
         "content": g('fstvlCo'), "address": address,
         "lat": g('latitude') or None, "lng": g('longitude') or None,
         "region": guess_region(g('insttNm'), address),
-        "data_ref_date": g('referenceDate'),
+        "data_ref_date": g('referenceDate'), "kind": _infer_kind(name),
     }
 
 
@@ -569,13 +583,14 @@ def normalize_festival_tourapi(item: dict) -> dict:
     """TourAPI item(dict)을 normalize_festival()과 완전히 동일한 키 셰이프로 변환."""
     def g(k): return (item.get(k) or "").strip()
     addr = g("addr1")
+    name = g("title")
     return {
-        "name": g("title"), "place": addr,
+        "name": name, "place": addr,
         "start_date": _fmt_date(g("eventstartdate")), "end_date": _fmt_date(g("eventenddate")),
         "content": "", "address": addr,
         "lat": g("mapy") or None, "lng": g("mapx") or None,  # TourAPI: mapy=위도, mapx=경도
         "region": guess_region("", addr) or _TOUR_AREACODE.get(g("areacode"), ""),
-        "data_ref_date": g("modifiedtime")[:8],
+        "data_ref_date": g("modifiedtime")[:8], "kind": _infer_kind(name),
     }
 
 
@@ -592,13 +607,41 @@ SUPPLEMENTAL_FESTIVALS = [
         "start_date": "2026-09-04", "end_date": "2026-09-05",
         "content": "", "address": "서울특별시 영등포구 여의동로 330",
         "lat": "37.5285", "lng": "126.9327",
-        "region": "11", "data_ref_date": "20260903",
+        "region": "11", "data_ref_date": "20260903", "kind": "festival",
     },
+]
+
+
+def _sport(name, place, region, sd, ed, content=""):
+    return {"name": name, "place": place, "start_date": sd, "end_date": ed,
+            "content": content, "address": place, "lat": None, "lng": None,
+            "region": region, "data_ref_date": "20260907", "kind": "sports"}
+
+
+# 🏅 스포츠 행사 — 큐레이션(손 관리). 기준: "외지 방문·숙박 유발". 프로/e스포츠 정규시즌·해외
+#    개최는 제외. 티어: T1 전국종합대회 / T2 메이저 마라톤 / T3 국제·국가대표 / T4 프로 포스트
+#    시즌 / T5 e스포츠 메이저 오프라인. **매년 발표 후 날짜·개최지 갱신 필요** — docs/plans/08.
+SPORTS_EVENTS = [
+    # T1 전국 종합대회
+    _sport("제107회 전국동계체육대회", "강원특별자치도 일원", "51", "2026-02-25", "2026-02-28"),
+    _sport("제55회 전국소년체육대회", "부산광역시 일원", "26", "2026-05-23", "2026-05-26"),
+    _sport("제46회 전국장애인체육대회", "제주특별자치도 일원", "50", "2026-09-11", "2026-09-16"),
+    _sport("제107회 전국체육대회", "제주특별자치도 일원(75개 경기장)", "50", "2026-10-16", "2026-10-22",
+           "17개 시도·재외동포 선수단 약 3만 명 참가"),
+    # T2 대규모 참여 이벤트 (마라톤)
+    _sport("서울하프마라톤(조선일보)", "광화문~상암 월드컵공원", "11", "2026-04-26", "2026-04-26"),
+    _sport("2026 춘천국제마라톤(조선일보)", "춘천 공지천 일원", "51", "2026-10-25", "2026-10-25"),
+    _sport("2026 JTBC 서울마라톤", "상암동 일원", "11", "2026-11-01", "2026-11-01",
+           "※ 2026-06 JTBC 회생절차로 개최 여부 유동적 — 확정 전 잠정"),
+    # T5 e스포츠 메이저 오프라인 대회 ('온라인 스포츠')
+    _sport("2026 MSI (미드시즌 인비테이셔널)", "대전컨벤션센터(DCC) Hall 2", "30", "2026-06-28", "2026-07-12",
+           "LoL 국제대회 국내 개최"),
+    # T3 국제·국가대표 / T4 프로 포스트시즌 — 일정·개최지 확정 후 추가(docs/plans/08 참고).
 ]
 
 _festival_cache: list = []
 _festival_cached_at = None
-_festival_stats = {"supplemental": 0, "std": 0, "tour": 0, "tour_added": 0}
+_festival_stats = {"sports": 0, "supplemental": 0, "std": 0, "tour": 0, "tour_added": 0, "sports_tagged": 0}
 _FESTIVAL_CACHE_TTL = timedelta(hours=24)
 
 
@@ -627,16 +670,19 @@ def _merge_festivals(*sources: list):
 
 
 def _rebuild_festival_cache() -> None:
-    """세 소스(수동 보완 → 표준데이터 → TourAPI) fetch·정규화·병합·캐시.
+    """네 소스(스포츠 큐레이션 → 수동 보완 → 표준데이터 → TourAPI) fetch·정규화·병합·캐시.
     표준·TourAPI 둘 다 빈 결과일 때만 이전 캐시 유지."""
     global _festival_cache, _festival_cached_at, _festival_stats
     std = [normalize_festival(r) for r in fetch_festivals_from_std_api()]
     tour = [normalize_festival_tourapi(r) for r in fetch_festivals_from_tourapi()]
-    merged, kept = _merge_festivals(SUPPLEMENTAL_FESTIVALS, std, tour)
+    merged, kept = _merge_festivals(SPORTS_EVENTS, SUPPLEMENTAL_FESTIVALS, std, tour)
     if std or tour:
         _festival_cache = merged
         _festival_cached_at = datetime.now()
-        _festival_stats = {"supplemental": kept[0], "std": len(std), "tour": len(tour), "tour_added": kept[2]}
+        _festival_stats = {
+            "sports": kept[0], "supplemental": kept[1], "std": len(std), "tour": len(tour),
+            "tour_added": kept[3], "sports_tagged": sum(1 for m in merged if m.get("kind") == "sports") - kept[0],
+        }
 
 
 def get_festivals_raw() -> list:
@@ -659,10 +705,13 @@ def _period_overlaps(start_s, end_s, q_start, q_end) -> bool:
 
 
 @app.get("/api/festivals")
-def get_festival_list(stdate: str = "", eddate: str = "", signgucode: str = ""):
+def get_festival_list(stdate: str = "", eddate: str = "", signgucode: str = "", kind: str = ""):
+    """축제+스포츠 통합. kind="sports"|"festival"로 종류 필터(생략 시 전체)."""
     items = get_festivals_raw()
     if signgucode:
         items = [it for it in items if it["region"] == signgucode]
+    if kind:
+        items = [it for it in items if it.get("kind", "festival") == kind]
     if stdate and eddate:
         items = [it for it in items if _period_overlaps(it["start_date"], it["end_date"], stdate, eddate)]
     return {"status": "success", "total_count": len(items), "data": items}
@@ -675,8 +724,10 @@ def force_festival_sync():
     _festival_cached_at = None
     items = get_festivals_raw()
     unmatched = sum(1 for it in items if not it["region"])
+    sports = sum(1 for it in items if it.get("kind") == "sports")
     return {
-        "status": "success", "total": len(items),
+        "status": "success", "total": len(items), "sports": sports,
+        "sports_curated": _festival_stats["sports"], "sports_tagged": _festival_stats["sports_tagged"],
         "supplemental": _festival_stats["supplemental"], "std": _festival_stats["std"],
         "tour": _festival_stats["tour"], "tour_added": _festival_stats["tour_added"],
         "unmatched_region": unmatched,
