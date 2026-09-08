@@ -1,6 +1,7 @@
 # Phase 8 — 스포츠 행사 연동 (큐레이션 + 자동 태깅)
 
-**상태: 구현 + 로컬 브라우저 검증 완료 (2026-09-07). 프로덕션 배포 대기 (새 키 불필요).**
+**상태: 프로덕션 배포·라이브 확인 완료 (2026-09-08, 커밋 `2296a6c`, `master`==`main`).**
+프로덕션 `/api/festivals/sync` → `{total: 1749, sports: 19, sports_curated: 8, sports_tagged: 11}`. GitHub Pages 캘린더에서 10월 전국체전(16~22)·춘천마라톤(25) `스` 배지, 🏅 스포츠 소스탭 확인.
 
 ## 배경
 
@@ -46,9 +47,9 @@ DB·발송 경로·`generate_data_insight()`·`/api/kopis`·`/api/holidays`·`/a
 - `?kind=sports`/`?kind=festival` 분리, `signgucode`·날짜 필터 그대로 적용
 - 브라우저: 리스트 🏅 스포츠 탭(장애인체전·GES2026), 캘린더 9월 `이달 스포츠 2` + `스 1` 배지(11~16, 18~20), 10월 전국체전(16~22)·춘천마라톤(25), 제주 필터 시 스포츠 1, 날짜 상세 🏅 스포츠 섹션. 축제 탭엔 스포츠 카드 0. 그리드 뷰·콘솔 에러 없음.
 
-## 배포
+## 배포 (2026-09-08 완료)
 
-`main.py`+`index.html` → `git push origin master:main` (Render 재배포). **새 키·환경변수 불필요.**
+`git push origin master:main` (`main` `cc83258`..`2296a6c`). Render 백엔드 재배포 + GitHub Pages 프론트. **새 키·환경변수 없음.** 프로덕션 확인 완료.
 
 ## 유지보수 — `SPORTS_EVENTS` 손 관리
 
