@@ -1328,6 +1328,7 @@ function createPerfCard(item, opts = {}){
       <div class="ptags">
         ${item.is_new?'<span class="tag tag-new">🆕 NEW</span>':''}
         <span class="tag">${item.genrenm||'–'}</span>
+        ${item.area?`<span class="tag">${item.area}</span>`:''}
         <span class="tag ${stClass}">${item.prfstate||'–'}</span>
         ${isOpen?'<span class="tag tag-open">오픈런</span>':''}
         ${isHolidayOverlap(item)?'<span class="tag tag-holiday">🎌 연휴</span>':''}
