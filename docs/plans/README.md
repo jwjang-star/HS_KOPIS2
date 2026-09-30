@@ -14,7 +14,7 @@ KOPIS 공연 데이터를 지역별로 조회해서 지점 주변 숙박 수요�
 | 6 | 축제 2차 소스 — TourAPI(searchFestival2) 병합 + 수동 보완(한화 서울세계불꽃축제) | ✅ 구현 + **프로덕션 배포·라이브 확인 완료** (2026-09-03) |
 | 7 | 캘린더 날씨 — 기상청 단기예보(D+0~D+3) + 중기예보(D+4~D+10), 캘린더 셀 칩 + 날짜 상세 | ✅ 구현 + **프로덕션 배포·라이브 확인 완료** (2026-09-07) |
 | 8 | 스포츠 행사 — 큐레이션(전국체전·마라톤·MSI 등 T1~T5) + 기존 축제 데이터 자동 태깅, 축제와 별도 종류 | ✅ 구현 + **프로덕션 배포·라이브 확인 완료** (2026-09-08) |
-| 9 | 그리드 뷰 CSV 다운로드 (공연/축제/스포츠 3탭 공통) + `main.py` KOPIS `area` 필드 노출 | 🚧 구현+로컬 검증 완료, **미배포** |
+| 9 | 그리드 뷰 CSV 다운로드 (공연/축제/스포츠 3탭 공통) + `main.py` KOPIS `area` 필드 노출 + 그리드 카드 지역 태그 | ✅ 구현 + **프로덕션 배포·라이브 확인 완료** (2026-09-30) |
 
 ## 문서 목록
 
@@ -26,11 +26,11 @@ KOPIS 공연 데이터를 지역별로 조회해서 지점 주변 숙박 수요�
 - [06-tourapi-festival-source.md](./06-tourapi-festival-source.md) — Phase 6 축제 2차 소스(TourAPI) + 수동 보완 (2026-09-03 라이브)
 - [07-calendar-weather.md](./07-calendar-weather.md) — Phase 7 캘린더 날씨(기상청 단기+중기예보, D+0~D+10) (2026-09-07 라이브)
 - [08-sports-events.md](./08-sports-events.md) — Phase 8 스포츠 행사(큐레이션 + 자동 태깅) + `SPORTS_EVENTS` 갱신 절차 (2026-09-08 라이브)
-- [09-csv-export.md](./09-csv-export.md) — Phase 9 그리드 뷰 CSV 다운로드 + `main.py`가 버리고 있던 KOPIS `area` 필드 노출, 로컬 검증 완료·미배포
+- [09-csv-export.md](./09-csv-export.md) — Phase 9 그리드 뷰 CSV 다운로드 + `main.py`가 버리고 있던 KOPIS `area` 필드 노출 (2026-09-30 라이브)
 
 ## 작업 원칙 (모든 Phase 공통)
 
 - 기존 로직(`generate_data_insight()`, `/api/kopis`, 발송 경로 `send-daily-email`/`send-selected`, `load_recipients`) 절대 수정하지 않는다. 새 함수로 감싸거나 새 엔드포인트를 추가하는 "격리 추가" 방식만 쓴다.
 - Render 무료 티어는 단일 프로세스 + 15분 무트래픽 시 슬립되는 휘발성 환경이다. 새로 캐싱이 필요하면 Supabase에 테이블을 새로 만들기보다(RLS 정책 설정 부담·과거 사고 이력) 모듈 레벨 in-memory dict를 우선 검토한다.
 - 새 외부 API 연동은 항상 "키/설정이 없어도 기존 기능이 안 깨지는" 형태(조용히 빈 값 반환)로 만든다.
-- 배포 브랜치는 `main`(GitHub) — 로컬 작업은 `master` 브랜치에서 하고 `git push origin master:main`으로 배포한다. Render(백엔드)와 GitHub Pages(프론트엔드, `index.html`)가 `main`을 보고 자동 배포되는 구조로 추정됨(둘 다 대시보드 UI로 연결돼 있어 리포지토리 내 별도 설정 파일은 없음).
+- 배포 브랜치는 `main`(GitHub) — 로컬 작업은 `master` 브랜치에서 하고 `git push origin master:main`으로 배포한다. Render(백엔드)와 GitHub Pages(프론트엔드, `index.html`)가 `main`을 보고 자동 배포됨(둘 다 대시보드 UI로 연결돼 있어 리포지토리 내 별도 설정 파일은 없음). GitHub Pages 주소 확인됨: https://jwjang-star.github.io/HS_KOPIS2/ (푸시 후 수십 초 내 반영, Render는 2~3분 소요).

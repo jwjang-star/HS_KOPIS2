@@ -1,6 +1,7 @@
 # Phase 9 — 그리드 뷰 CSV 다운로드
 
-**상태: 구현 + 로컬 검증(운영 API·로컬 API 둘 다) 완료, 미배포(커밋 전, 작업트리에만 반영됨. 기준 커밋 `43f3438` 위에 `main.py`+`index.html` 수정).**
+**상태: 프로덕션 배포·라이브 확인 완료 (2026-09-30, 커밋 `003b79f`, `master`==`main`).**
+프로덕션 `/api/kopis` 응답에 `"area":"서울특별시"` 확인, GitHub Pages(`jwjang-star.github.io/HS_KOPIS2`)에서 CSV 다운로드 버튼·그리드 카드 지역 태그 라이브 확인.
 
 ## 배경
 
@@ -57,9 +58,9 @@ DB·메일발송·웹훅·명부 파싱 로직, 새 npm/CDN 라이브러리 없�
 
 사용자가 CSV 배포 승인 직후 "공연 그리드 리스트에 아직도 지역이 표시가 안 된다"고 지적(당시엔 프로덕션 미배포 상태라 재현 확인). `createPerfCard()`의 `.ptags`에 `item.area` 태그 한 줄 추가(`${item.area?...:''}`, 장르 태그 바로 다음). 로컬 API로 재검증 — 카드에 "서울특별시" 등 정상 표시.
 
-## 배포
+## 배포 (2026-09-30 완료)
 
-`git push origin master:main`로 배포 진행(사용자 승인 완료).
+`git push origin master:main` (`main` `43f3438`..`003b79f`, 2개 커밋: CSV 기능+area 버그수정, 그리드 카드 지역 태그). Render 백엔드 재배포(수 분 소요, polling으로 확인) + GitHub Pages 프론트. **새 키·환경변수 없음.** 프로덕션 확인 완료.
 
 ## 범위 밖
 - 캘린더 뷰 내보내기
