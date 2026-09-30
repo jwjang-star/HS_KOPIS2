@@ -83,7 +83,10 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
   font-weight: 500;
   white-space: nowrap;
 }
-.btn-mail:hover { background: #3a7010; }  
+.btn-mail:hover { background: #3a7010; }
+/*CSV 다운로드 버튼*/
+.btn-csv{display:flex;align-items:center;gap:4px;font-size:11px;padding:0 11px;height:26px;border-radius:var(--border-radius-md);background:#4B5563;color:#F3F4F6;border:none;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn-csv:hover{background:#374151}
 .mail-rtag {
   font-size: 10px;
   padding: 3px 10px;
@@ -533,6 +536,9 @@ input[type=date],select{font-size:11px;padding:4px 7px;border:0.5px solid var(--
       <div class="lhead">
         <span class="ltitle" id="ltitle">공연 목록</span>
         <span class="lcnt" id="lcnt">0건</span>
+        <button class="btn-csv" id="btn-csv" onclick="exportCsv()" style="margin-left:auto;">
+          <i class="ti ti-file-spreadsheet" aria-hidden="true" style="font-size:12px"></i>CSV 다운로드
+        </button>
       </div>
       <div class="stabs">
         <span class="stab on" data-src="perf" onclick="pickSource(this)">🎭 공연</span>
@@ -1417,6 +1423,47 @@ function renderList(){
 
   // 2) 하단: 기존 공연 리스트
   oldItems.forEach(item => plist.appendChild(createPerfCard(item)));
+}
+
+/* ══════════════════════════════════════════════
+   CSV 다운로드 — 재조회 없이 "현재 화면에 로드된" 목록만 내보냄.
+   공연 탭 지역명은 item.area(KOPIS 원본 지역 전체명, 예: "서울특별시") 우선,
+   혹시 비어있는 항목이면 현재 선택된 지역탭(selCode) 라벨로 대체.
+══════════════════════════════════════════════ */
+function csvEscape(v){
+  const s = String(v ?? '');
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportCsv(){
+  const catLabel = sourceMode === 'perf' ? '공연' : sourceMode === 'sports' ? '스포츠' : '지역축제';
+  let rows;
+
+  if(sourceMode === 'perf'){
+    const onlyNew = document.getElementById('chk-only-new')?.checked;
+    const source  = onlyNew ? lastItems.filter(i => i.is_new) : lastItems;
+    rows = source.map(item => [`${item.prfpdfrom} ~ ${item.prfpdto}`, item.area || REGION_LABEL[selCode] || '전체', catLabel, item.prfnm]);
+  } else {
+    const source = lastFestivals.filter(x => sourceMode === 'sports' ? x.kind === 'sports' : x.kind !== 'sports');
+    rows = source.map(item => [`${item.start_date} ~ ${item.end_date}`, REGION_LABEL[item.region] || '지역미상', catLabel, item.name]);
+  }
+
+  if(!rows.length){
+    alert('내보낼 데이터가 없습니다');
+    return;
+  }
+
+  const header = ['날짜', '지역명', '카테고리', '이벤트 일정명'];
+  const csv = [header, ...rows].map(r => r.map(csvEscape).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], {type: 'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `KOPIS_${catLabel}_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // 전체 선택 / 해제: 현재 화면에 보이는 모든 체크박스 토글

@@ -127,6 +127,7 @@ def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, si
             "openrun": db.findtext('openrun') or "",
             "prfpdfrom": prfpdfrom,
             "prfpdto": prfpdto,
+            "area": db.findtext('area') or "",
             "is_new": is_new
         }
         data.append(item)
