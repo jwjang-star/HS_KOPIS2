@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import xml.etree.ElementTree as ET
@@ -29,6 +29,8 @@ app.add_middleware(
 # KOPIS API 정보
 API_KEY = "1c235bf039644a5da499d3dfab103750"
 KOPIS_URL = "http://www.kopis.or.kr/openApi/restful/pblprfr"
+# KOPIS WAF가 python-requests 기본 UA를 "400 Request Blocked"로 차단함 → 브라우저 UA 필수
+KOPIS_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # Supabase 연결 설정 (Render 환경변수에 꼭 등록해 주세요! — service_role 키 사용, 코드에는 하드코딩하지 않음)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://bnicadeeglrnymggybig.supabase.co")
@@ -70,8 +72,11 @@ def get_kopis_data(stdate: str, eddate: str, cpage: int = 1, rows: int = 100, si
     if shcate: params["shcate"] = shcate
     if prfstate: params["prfstate"] = prfstate
 
-    response = requests.get(KOPIS_URL, params=params)
-    root = ET.fromstring(response.content)
+    response = requests.get(KOPIS_URL, params=params, headers=KOPIS_HEADERS, timeout=10)
+    try:
+        root = ET.fromstring(response.content)
+    except ET.ParseError:
+        raise HTTPException(502, f"KOPIS 응답이 XML이 아님 (status={response.status_code}): {response.text[:200]}")
     
     # 💡 [지역 매칭 보완] 해당 지역코드로 저장된 기록만 딱 집어서 가져옵니다.
     target_region = signgucode if signgucode else "전체"
@@ -1072,7 +1077,7 @@ def send_daily_email(regions: str = ""):
                 "cpage": 1, "rows": 50, "signgucode": code, "prfstate": "02"
             }
             try:
-                response = requests.get(KOPIS_URL, params=params, timeout=10)
+                response = requests.get(KOPIS_URL, params=params, headers=KOPIS_HEADERS, timeout=10)
                 root = ET.fromstring(response.content)
                 performances = []
                 for db in root.findall("db"):
