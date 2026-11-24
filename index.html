@@ -1132,7 +1132,7 @@ async function checkServer(){
   try{
     const today=new Date().toISOString().slice(0,10).replace(/-/g,'');
     const res=await fetch(`${base}/api/kopis?stdate=${today}&eddate=${today}&rows=1`,
-      {signal:AbortSignal.timeout(4000)});
+      {signal:AbortSignal.timeout(15000)});  // Render 무료 인스턴스에서 KOPIS+Supabase 왕복이 ~7.5초 — 4초면 항상 실패
     if(res.ok){dot.className='srv-dot ok';txt.textContent='서버 연결됨';return true;}
     throw new Error(`HTTP ${res.status}`);
   }catch(e){
