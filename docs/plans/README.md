@@ -27,10 +27,12 @@ KOPIS 공연 데이터를 지역별로 조회해서 지점 주변 숙박 수요�
 - [07-calendar-weather.md](./07-calendar-weather.md) — Phase 7 캘린더 날씨(기상청 단기+중기예보, D+0~D+10) (2026-09-07 라이브)
 - [08-sports-events.md](./08-sports-events.md) — Phase 8 스포츠 행사(큐레이션 + 자동 태깅) + `SPORTS_EVENTS` 갱신 절차 (2026-09-08 라이브)
 - [09-csv-export.md](./09-csv-export.md) — Phase 9 그리드 뷰 CSV 다운로드 + `main.py`가 버리고 있던 KOPIS `area` 필드 노출 (2026-09-30 라이브)
+- [10-kopis-waf-incident.md](./10-kopis-waf-incident.md) — 2026-11-24 KOPIS WAF가 `python-requests` UA를 차단해 `/api/kopis`가 전부 500 나던 장애 + 조용히 나가던 빈 메일 + 연결 체크 타임아웃 조정
 
 ## 작업 원칙 (모든 Phase 공통)
 
 - 기존 로직(`generate_data_insight()`, `/api/kopis`, 발송 경로 `send-daily-email`/`send-selected`, `load_recipients`) 절대 수정하지 않는다. 새 함수로 감싸거나 새 엔드포인트를 추가하는 "격리 추가" 방식만 쓴다.
 - Render 무료 티어는 단일 프로세스 + 15분 무트래픽 시 슬립되는 휘발성 환경이다. 새로 캐싱이 필요하면 Supabase에 테이블을 새로 만들기보다(RLS 정책 설정 부담·과거 사고 이력) 모듈 레벨 in-memory dict를 우선 검토한다.
-- 새 외부 API 연동은 항상 "키/설정이 없어도 기존 기능이 안 깨지는" 형태(조용히 빈 값 반환)로 만든다.
+- 새 외부 API 연동은 항상 "키/설정이 없어도 기존 기능이 안 깨지는" 형태(조용히 빈 값 반환)로 만든다. 단 이 설계는 사고를 숨기므로, 빈 결과가 정상인지 장애인지 구분할 단서(로그 또는 에러 응답)를 같이 남긴다([[10-kopis-waf-incident]]).
+- 공공 API 호출에는 브라우저 User-Agent 헤더를 붙인다. KOPIS는 WAF가 `python-requests` 기본 UA를 `400 Request Blocked`로 차단한다([[10-kopis-waf-incident]]). 외부 호출에는 `timeout`도 반드시 건다.
 - 배포 브랜치는 `main`(GitHub) — 로컬 작업은 `master` 브랜치에서 하고 `git push origin master:main`으로 배포한다. Render(백엔드)와 GitHub Pages(프론트엔드, `index.html`)가 `main`을 보고 자동 배포됨(둘 다 대시보드 UI로 연결돼 있어 리포지토리 내 별도 설정 파일은 없음). GitHub Pages 주소 확인됨: https://jwjang-star.github.io/HS_KOPIS2/ (푸시 후 수십 초 내 반영, Render는 2~3분 소요).
